@@ -1,8 +1,16 @@
-**File Name**: documentation_rules **Phase**: All phases **Created**: 21-Mar-2026 **Modified**: 21-Mar-2026
+**File Name**: documentation_rules **Phase**: All phases **Created**: 21-Mar-2026 **Modified**: 24-Mar-2026
 
 ---
 
 **Purpose:** rules for writing project documentation. Every doc should be understandable by the author after a year away from the project.
+
+---
+
+## 0. What Is a Component
+
+A component is any pluggable, self-contained piece of functionality that can be added or removed without affecting the rest of the app. It may contain a model, a service, a UI, a background process, or any combination. The defining property is isolation — nothing outside it breaks when it is removed.
+
+Components are distinct from features. A feature is a core part of the app with its own permanent place in the dependency chain. A component is optional and additive — it hooks into existing features without modifying them.
 
 ---
 
@@ -121,3 +129,19 @@ When generating or updating `feature_dependency_diagram.puml`, follow these rule
 
 - Only show connections between features — no self-arrows, no intra-feature calls
 - Only include public functions actually called by another feature — omit unused public functions
+
+---
+
+## 14. Components Reference Each Other, Never Repeat
+
+When a screen or component uses another component, name it and link to its doc. Never repeat that component's fields, behavior, or rules inline. The linked doc is the single source of truth.
+
+Good: "Commitment facts rendered by `component_commitment_info` — see that doc for fields and behavior." Bad: re-listing the component's fields and rules in the parent doc.
+
+---
+
+## 15. Later Improvements for Deferred Work
+
+Anything not in scope for the current phase goes in a dedicated "Later Improvements" section at the bottom of the doc. Each entry names what it adds and what it requires — feature dependency, phase — in one or two sentences. Never mix future plans into the current phase description.
+
+Good: "**Streak display.** Current streak and personal best. Requires the Rewards feature (Phase 2)." Bad: describing a Phase 2 feature inline as if it is part of the current design.

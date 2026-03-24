@@ -1,4 +1,4 @@
-**File Name**: architecture_rules **Phase**: All phases **Created**: 15-Mar-2026 **Modified**: 21-Mar-2026
+**File Name**: architecture_rules **Phase**: All phases **Created**: 15-Mar-2026 **Modified**: 24-Mar-2026
 
 ---
 
@@ -232,3 +232,17 @@ Before building any new feature:
 - Does it react to other features only through event subscriptions?
 - Does it publish events when its state changes?
 - Can it be removed without changing any other feature's code?
+
+---
+
+## 14. Core Feature
+
+`core` is for screens and components that assemble data from multiple features and cannot be attributed to any single one. Presentation only.
+
+**Belongs in `core`:** screens that draw from three or more features to give a unified view. The app-level navigation shell.
+
+**Does not belong in `core`:** infrastructure utilities, configuration, or anything that can be cleanly attributed to one feature.
+
+**Hard rules:** no services, no repositories, no models. No business logic. Reads other features only through their public service interfaces.
+
+**The test:** can you name one feature that owns this screen? If yes — put it there. If no — it belongs in `core`.
