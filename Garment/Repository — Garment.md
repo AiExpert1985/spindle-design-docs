@@ -8,23 +8,23 @@
 
 ## GarmentProfile Operations
 
-| Operation | Input | Output |
+|Operation|Input|Output|
 |---|---|---|
-| `saveProfile(profile)` | GarmentProfile | — upsert |
-| `getProfile(definitionId)` | definitionId | GarmentProfile? |
-| `watchProfile(definitionId)` | definitionId | Stream\<GarmentProfile?\> |
-| `deleteProfile(definitionId)` | definitionId | — |
+|`saveProfile(profile)`|GarmentProfile|— upsert|
+|`getProfile(definitionId)`|definitionId|GarmentProfile?|
+|`watchProfile(definitionId)`|definitionId|Stream<GarmentProfile?>|
+|`deleteProfile(definitionId)`|definitionId|—|
 
 ---
 
 ## CommitmentWeeklyProgress Operations
 
-| Operation | Input | Output |
+|Operation|Input|Output|
 |---|---|---|
-| `saveWeeklyProgress(record)` | CommitmentWeeklyProgress | — upsert |
-| `getWeeklyProgress(definitionId, limit?)` | definitionId, optional limit | List ordered by weekStart desc |
-| `getLiveWeekProgress(definitionId)` | definitionId | CommitmentWeeklyProgress? |
-| `deleteWeeklyProgress(definitionId)` | definitionId | — deletes all records for commitment |
+|`saveWeeklyProgress(record)`|CommitmentWeeklyProgress|— upsert|
+|`getWeeklyProgress(definitionId, limit?)`|definitionId, optional limit|List ordered by weekStart desc|
+|`getLiveWeekProgress(definitionId)`|definitionId|CommitmentWeeklyProgress?|
+|`deleteWeeklyProgress(definitionId)`|definitionId|— deletes all records for commitment|
 
 ---
 

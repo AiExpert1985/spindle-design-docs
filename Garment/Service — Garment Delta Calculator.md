@@ -24,9 +24,9 @@ GarmentDeltaCalculator (abstract)
 calculate(
   completionPercent: double,
   consecutiveFailDays: int,
-  livePerformance: double,
+  performanceValue: double,    // raw or accelerator-modified — caller decides
+  isSuccess: bool,             // from PerformanceService.isWindowSuccess()
   commitmentType: CommitmentType,
-  currentStreak: int,
 ) → GarmentDelta
 ```
 
@@ -36,7 +36,7 @@ GarmentDelta
   updatedConsecutiveFailDays: int
 ```
 
-All inputs are passed in — no reads from storage, no service calls.
+All inputs are passed in — no reads from storage, no service calls. `isSuccess` is evaluated by the caller (`GarmentService`) via `PerformanceService.isWindowSuccess()` before calling this function — the calculator never reads `AppConfig.successThreshold` directly.
 
 ---
 
@@ -47,11 +47,13 @@ All inputs are passed in — no reads from storage, no service calls.
 The base movement for a kept day.
 
 **Do commitment:**
+
 - Full kept day (100%) → `+dailyFullContribution` (default: 1.5%)
 - Partial day → proportional: `livePerformance / 100 × dailyFullContribution`
 - Missed day (0%) → 0 contribution, does not trigger decay alone
 
 **Avoid commitment:**
+
 - Successful avoided day → `-dailyFullContribution` (moves toward 0%)
 - Breach day → `+dailyBreachPenalty` (default: 2.0%, moves back toward 100%)
 
@@ -84,14 +86,14 @@ Applies when a streak is active.
 
 All calculations work identically for both commitment types — the direction is reversed for Avoid.
 
-| Event | Do habit | Avoid habit |
+|Event|Do habit|Avoid habit|
 |---|---|---|
-| Successful day | percent increases | percent decreases |
-| Breach / miss | percent unchanged (decay may apply) | percent increases |
-| Decay active | percent decreases | percent increases |
-| Streak bonus | increases faster | decreases faster |
-| Starting value | 0.0% | 100.0% |
-| Goal | reach 100.0% | reach 0.0% |
+|Successful day|percent increases|percent decreases|
+|Breach / miss|percent unchanged (decay may apply)|percent increases|
+|Decay active|percent decreases|percent increases|
+|Streak bonus|increases faster|decreases faster|
+|Starting value|0.0%|100.0%|
+|Goal|reach 100.0%|reach 0.0%|
 
 ---
 

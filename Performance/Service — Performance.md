@@ -1,4 +1,4 @@
-**File Name**: performanceservice **Feature**: Performance **Phase**: 1 **Created**: 20-Mar-2026 **Modified**: 21-Mar-2026
+**File Name**: performanceservice **Feature**: Performance **Phase**: 1 **Created**: 20-Mar-2026 **Modified**: 24-Mar-2026
 
 ---
 
@@ -137,6 +137,16 @@ Universal reader. Fetches instances via `CommitmentIdentityService.getInstances(
 ### `getOverallWeekScore(weekStart)`
 
 `getPerformanceForPeriod(weekStart, weekEnd)` — weekly cup evaluation, progression gating, weekly summary.
+
+### `isWindowSuccess(livePerformance)` — pure function
+
+```
+return livePerformance >= AppConfig.successThreshold
+```
+
+The single definition of what counts as a kept window. Any feature that needs to classify a window result as success or failure calls this function. Never reimplemented elsewhere.
+
+Used by: `StreakService` (to update streak counts), `GarmentDeltaCalculator` (receives `isSuccess` as a parameter from the caller). If `successThreshold` ever becomes per-commitment, only this function changes — all callers are unaffected.
 
 ---
 

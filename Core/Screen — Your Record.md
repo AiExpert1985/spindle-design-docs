@@ -34,8 +34,9 @@ These are the components anticipated for this screen. None are fully designed ye
 |---|---|---|
 |Commitment Health|Colored dot per commitment showing current window performance|2|
 |Performance Calendar (full mode)|Monthly calendar of daily scores, swipeable by month|2|
-|Streaks|Current and best streak per commitment|1 / 2|
-|Weekly Cups|Cup history by week|2|
+|Streak Summary (`component_streak_ui`)|Current and best streak per commitment|2|
+|Weekly Cups|Cup history by week — link to Achievements screen for full list|2|
+|Achievements link|Entry point to `screen_achievements` — full achievement history|2|
 |Progression Teaser|Compact level summary, tap → Progression screen|3|
 
 ---

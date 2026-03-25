@@ -2,42 +2,29 @@
 
 ---
 
-**Purpose:** storage interface for the Progression feature. Stores `ProgressionProfile` and `BonusThreadRecord` records. Called only by `ProgressionService`.
+**Purpose:** storage interface for the Progression feature. Stores `ProgressionProfile` only. Called only by `ProgressionService`.
 
 ---
 
 ## ProgressionProfile Operations
 
-| Operation | Input | Output |
+|Operation|Input|Output|
 |---|---|---|
-| `getProfile` | — | ProgressionProfile? |
-| `saveProfile` | ProgressionProfile | — full replace |
-| `watchProfile` | — | Stream\<ProgressionProfile?\> |
+|`getProfile`|—|ProgressionProfile?|
+|`saveProfile`|ProgressionProfile|— full replace|
+|`watchProfile`|—|Stream<ProgressionProfile?>|
 
-`getProfile` returns null if no profile exists yet — first cup award triggers creation via `ProgressionService`.
+`getProfile` returns null if no profile exists yet — first `PointsAwardedEvent` triggers creation.
 
 ---
 
-## BonusThreadRecord Operations
-
-| Operation | Input | Output |
-|---|---|---|
-| `saveBonusRecord` | BonusThreadRecord | — |
-| `fetchBonusHistory` | since?: DateTime, limit? | List ordered by occurredAt desc |
-| `fetchBonusSince` | from: DateTime | List — used for trigger evaluation |
-
-Bonus records are never deleted — permanent historical record.
-
----
-
-## Firestore Paths
+## Firestore Path
 
 ```
-/users/{userId}/progression/{id}       ← single profile document
-/users/{userId}/bonusThreads/{id}      ← bonus history records
+/users/{userId}/progression/{id}
 ```
 
-Both covered by the existing security rule. No additional configuration needed.
+Covered by existing security rule.
 
 ---
 
@@ -46,5 +33,4 @@ Both covered by the existing security rule. No additional configuration needed.
 - Called only by `ProgressionService`
 - No business logic — only fetch and store
 - `saveProfile` is always a full replace — no partial updates
-- `watchProfile` used by the Progression screen to update in real time
-- All IDs are client-generated UUIDs
+- `watchProfile` used by the Progression screen for real-time updates

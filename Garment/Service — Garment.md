@@ -41,8 +41,8 @@ Fires when the first instance of a new commitment is created. Creates a `Garment
 1. `GarmentTypeResolver.resolve(definition)` → `garmentType`
 2. `ThreadColorResolver.resolve(definitionId)` → `threadColors`
 3. Creates `GarmentProfile` with `completionPercent` at starting value:
-   - Do commitment → 0.0%
-   - Avoid commitment → 100.0%
+    - Do commitment → 0.0%
+    - Avoid commitment → 100.0%
 
 Idempotent — exits silently if a profile already exists for this `definitionId`.
 
@@ -52,17 +52,34 @@ Also fires when an existing commitment's instance is recreated after a definitio
 
 Fires when a commitment window closes with its final `livePerformance`. Triggers the daily garment update for this commitment.
 
-Calls `_updateGarment(definitionId, date, livePerformance)`:
-
-1. Read current `GarmentProfile`
-2. Call `GarmentDeltaCalculator.calculate(profile, livePerformance, commitmentType)` → `delta`
-3. Apply delta to `completionPercent` — clamp to 0.0–100.0
-4. Update `consecutiveFailDays`
-5. Save updated profile via `GarmentRepository`
-6. Update live `CommitmentWeeklyProgress` record
-7. Publish `GarmentUpdatedEvent`
+```
+1. Read current GarmentProfile
+2. performanceValue = _getPerformance(event.definitionId, event.livePerformance)
+3. delta = GarmentDeltaCalculator.calculate(profile, performanceValue, commitmentType)
+4. Apply delta to completionPercent — clamp to 0.0–100.0
+5. Save updated profile via GarmentRepository
+6. Update live CommitmentWeeklyProgress record
+7. Publish GarmentUpdatedEvent
+```
 
 Idempotent — checks `lastUpdatedDate` before running.
+
+---
+
+## Internal Functions
+
+### `_getPerformance(definitionId, livePerformance)` → double
+
+The single point where Garment decides which performance value to use. Abstracts the source completely — `GarmentDeltaCalculator` receives one number and never knows where it came from.
+
+```
+if AppConfig.garmentUsesAccelerator == false:
+  return livePerformance
+
+return AcceleratorService.getMultiplier(definitionId) * livePerformance
+```
+
+When the accelerator is disabled, this is a pass-through — zero overhead, zero coupling. When enabled, it multiplies the raw performance by the current multiplier for this commitment. The formula is entirely inside `AcceleratorService` — changing how the accelerator works requires no change here.
 
 ### `InstancePermanentlyDeletedEvent` → `_onCommitmentDeleted(event)`
 
@@ -119,6 +136,7 @@ The running delta for the current week. Used by the garment display to show "Thi
 - EventBus — subscribes to `InstanceCreatedEvent`, `PerformanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`, `WeekEndedEvent`; publishes `GarmentUpdatedEvent`
 - `GarmentRepository` — reads and writes `GarmentProfile` and `CommitmentWeeklyProgress`
 - `CommitmentService.getDefinition()` — reads definition once at garment creation
+- `AcceleratorService.getMultiplier()` — called by `_getPerformance()` when `garmentUsesAccelerator` is true. `AcceleratorService` in turn calls `AchievementService.getStreakRecord()` — Garment never calls AchievementService directly
 - `GarmentTypeResolver` — injected
 - `ThreadColorResolver` — injected
 - `GarmentDeltaCalculator` — injected

@@ -1,10 +1,12 @@
-**Created**: 15-Mar-2026 **Modified**: 18-Mar-2026 **Feature**: Settings **Phase**: 1 (temporal) · Phase 2 (notifications, preferences) · Phase 3 (account, subscription, storage)
-
-**Purpose:** lets users configure app behavior and manage their account. Accessed from bottom nav tab 4.
+**File Name**: screen_settings **Feature**: Core **Phase**: 1 (temporal) · Phase 2 (notifications, preferences) · Phase 3 (account, subscription, storage) **Created**: 15-Mar-2026 **Modified**: 24-Mar-2026
 
 ---
 
-## Screen Layout
+**Purpose:** lets users configure app behavior and manage their account. All settings write to `UserProfile` through `UserService`. Accessed from bottom nav.
+
+---
+
+## Layout
 
 ```
 ┌─────────────────────────────────────────┐
@@ -24,11 +26,11 @@
 │  Weekly report                   On  >  │
 │  Warning notifications            On  > │
 │                                         │
-│  ACCOUNT                   (Phase 3)    │
+│  ACCOUNT                     Phase 3    │
 │  Subscription                  Free  >  │
 │  Sign in                            >   │
 │                                         │
-│  STORAGE                   (Phase 3)    │
+│  STORAGE                     Phase 3    │
 │  Backend                    Local    >  │
 │                                         │
 │  ABOUT                                  │
@@ -45,26 +47,23 @@
 
 ### Calendar & Time (Phase 1)
 
-The most culturally sensitive settings. Shown in Phase 1 because `TemporalHelper` reads these from the first day — wrong defaults cause wrong behavior immediately.
+The most culturally sensitive settings. Available from first launch — `TemporalHelper` reads these from day one, so wrong defaults cause wrong behavior immediately.
 
-**Week starts on** — picker: Sunday / Monday / Friday / Saturday. Default Monday. Middle East users typically select Friday or Saturday.
+- **Week starts on** — Sunday / Monday / Friday / Saturday. Default Monday.
+- **Rest days** — multi-select. Default Saturday + Sunday.
+- **Day resets at** — time picker for `dayBoundaryHour`. Default midnight.
+- **Waking hours** — start and end time. Default 7am–10pm. Controls notification delivery window.
 
-**Rest days** — multi-select days of week. Default Saturday + Sunday. These are days excluded from certain calculations and shown differently on the performance calendar.
-
-**Day resets at** — time picker for day boundary hour. Default midnight. Night-shift workers or night owls may prefer 3am or 4am.
-
-**Waking hours** — start and end time picker. Default 7am – 10pm. Determines when window warnings and predictive friction notifications fire.
-
-Changes take effect immediately — `TemporalHelper` reads from `UserProfile` on every call.
+Changes take effect immediately — `TemporalHelper` reads live from `UserProfile`.
 
 ---
 
 ### Notifications (Phase 2)
 
-- **Encouragement time** — when the Path B day celebration notification fires
+- **Encouragement time** — when Path B day celebration notification fires
 - **Encouragement threshold** — minimum day score to trigger celebration (default 60%)
 - **Encouragement on/off** — disable day celebration entirely
-- **Weekly report time** — when the Sunday report notification fires (Pro/Premium only)
+- **Weekly report time** — when Sunday report fires (Pro/Premium only)
 - **Weekly report on/off** — disable weekly report (Pro/Premium only)
 - **Warning notifications on/off** — global toggle for all window warning notifications
 
@@ -72,7 +71,7 @@ Changes take effect immediately — `TemporalHelper` reads from `UserProfile` on
 
 ### Account (Phase 3)
 
-- Current subscription tier with upgrade option
+- Current subscription tier with upgrade option — see `component_subscription_tiers`
 - Sign in / sign out via Firebase Auth
 
 ---
@@ -80,7 +79,7 @@ Changes take effect immediately — `TemporalHelper` reads from `UserProfile` on
 ### Storage (Phase 3)
 
 - Current backend: Local or Firebase
-- Migration status if in progress
+- Migration status if in progress — see `service_migration`
 
 ---
 
@@ -93,14 +92,23 @@ Changes take effect immediately — `TemporalHelper` reads from `UserProfile` on
 
 ### Recycle Bin
 
-- Soft-deleted commitments — see `recycle_bin.md`
+- Entry point to `screen_recycle_bin`
 
 ---
 
 ## Rules
 
-- Calendar & Time section is Phase 1 — it must be available from first launch
-- Every configurable value in the app is exposed here — nothing permanently hardcoded after Phase 2
-- Phase 3 sections hidden entirely in Phase 1 and 2 — not shown as disabled, just absent
+- Calendar & Time section available from Phase 1 — never hidden
+- Phase 3 sections absent entirely in Phase 1 and 2 — not shown as disabled
 - Settings changes take effect immediately — no save button needed
-- Temporal preference changes propagate instantly via `TemporalHelper` — no app restart needed
+- Temporal preference changes propagate instantly via `TemporalHelper`
+
+---
+
+## Data Sources
+
+|Data|Source|
+|---|---|
+|All preferences|`UserService.getPreferences()` — one-time read on open|
+|Preference updates|`UserService.update*()` functions|
+|Add button gate status|`UserCapabilityService.canAddCommitment` — not shown here, but referenced for context|
