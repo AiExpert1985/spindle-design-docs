@@ -1,4 +1,4 @@
-**Created**: 15-Mar-2026 **Modified**: 18-Mar-2026 **Phase**: 1 (Drift) · Phase 3 (Firestore) **Folder**: Rules
+**Created**: 15-Mar-2026 **Modified**: 26-Mar-2026 **Phase**: 1 (Drift) · Phase 3 (Firestore) **Folder**: Rules
 
 **Purpose:** defines which database backend is active per tier, how data is structured, how migration works, and the core rule that the rest of the app never knows which backend is in use.
 
@@ -22,7 +22,6 @@ The repository abstraction means services, providers, and screens never know whi
 - All data lives on device only — no internet required, ever
 - Full functionality permanently offline
 - No Firebase SDK involved at all
-- Each user has an independent SQLite file — scales infinitely, zero shared infrastructure
 
 ---
 
@@ -39,84 +38,44 @@ Drift is abandoned after migration. Firestore with offline persistence always en
 
 ## Data Structure — Subcollections per User
 
-All user data stored under the user's document as subcollections:
-
-```
-/users/{userId}/commitments/{id}         ← CommitmentDefinition
-/users/{userId}/instances/{id}           ← CommitmentInstance
-/users/{userId}/logEntries/{id}          ← LogEntry (Activity feature)
-/users/{userId}/performanceEntries/{id}  ← CommitmentDailyEntry (Performance feature)
-/users/{userId}/weeklyProgress/{id}      ← CommitmentWeeklyProgress (Garment feature)
-/users/{userId}/weeklyCups/{id}          ← WeeklyCup (Rewards feature)
-/users/{userId}/progression/{id}         ← ProgressionProfile (Progression feature) — one doc
-/users/{userId}/aiInsights/{id}          ← AIInsightRecord (AI Insights feature)
-/users/{userId}/coreProfile/{id}         ← UserCoreProfile (UserCore feature) — one doc
-/users/{userId}/settingsProfile/{id}     ← UserSettingsProfile (UserSettings feature) — one doc
-/users/{userId}/scheduledNotifications/{id} ← ScheduledNotification (Notification feature)
-/users/{userId}/graceRecords/{id}        ← GraceRecord (Grace feature)
-```
+All user data is stored under the user's document as subcollections. Each feature owns exactly one subcollection, accessed only through its own repository.
 
 **Why subcollections:**
 
-- User isolation is structural — queries never need a userId filter
-- Date range queries on instances and entries use one range filter — zero index read costs
+- User isolation is structural — queries never need a `userId` filter
+- Date range queries use one range filter — zero composite index costs
 - One security rule covers all collections for all users
 - Deleting a user removes all their data automatically
 
-**Drift has no userId field** — local database has one user's data by definition. The repository abstraction handles the path difference transparently.
+For the subcollection-to-repository mapping, see each feature's repository doc.
+
+**Drift has no `userId` field** — local database has one user's data by definition. The repository abstraction handles the path difference transparently.
 
 ---
 
 ## Repository Ownership
 
-Each subcollection is owned by exactly one repository, which is called only by its own feature's service:
+Each subcollection is owned by exactly one repository. That repository is called only by its own feature's service — no other feature touches it directly.
 
-|Subcollection|Repository|Feature|
-|---|---|---|
-|commitments, instances|CommitmentRepository|Commitment|
-|logEntries|ActivityRepository|Activity|
-|performanceEntries|PerformanceRepository|Performance|
-|weeklyProgress|GarmentRepository|Garment|
-|weeklyCups|CupRepository|Cups|
-|progression|ProgressionRepository|Progression|
-|aiInsights|AIInsightRepository|AI Insights|
-|coreProfile|UserCoreRepository|UserCore|
-|settingsProfile|UserSettingsRepository|UserSettings|
-|scheduledNotifications|NotificationRepository|Notification|
-|graceRecords|GraceRepository|Grace|
+For ownership details, see `feature_dependency_chain` and each feature's repository doc.
 
 ---
 
 ## Streams vs One-Time Reads
 
-|Data|Method|Reason|
-|---|---|---|
-|Today's instances|Stream|Changes as user logs|
-|Active commitment definitions|Stream|Changes on add/edit|
-|Garment completion percent|Stream|Changes after midnight update|
-|Progression profile|Stream|Changes after Sunday calculation|
-|Weekly cups|One-time read|Changes once per week|
-|AI insights|One-time read|Changes on demand only|
-|Historical instances (calendar)|One-time read|Static|
-|Performance entries|One-time read|Static after window close|
+Use a **stream** when the data changes during a session and the UI must stay in sync automatically.
 
-Always detach streams when screen is no longer visible. Active listeners consume read quota.
+Use a **one-time read** when the data is static for the duration of the screen or is fetched on demand only.
+
+The choice is made per data type in each feature's repository doc.
 
 ---
 
 ## Windowed Fetches — Never Fetch All
 
-Large collections grow continuously. Every fetch must have a time window.
+Large collections grow continuously. Every fetch must have a time window or a hard limit. Never fetch an entire collection.
 
-|Use case|Window|
-|---|---|
-|Dashboard instances|Today only|
-|Calendar history|Current month — per navigation|
-|Weekly cup calculation|Mon–Sun of target week|
-|Performance entries for garment|All entries for one commitment (bounded by commitment age)|
-|Analytics / AI|Last 30–60 days, configurable|
-|Streak calculation|Last 30 days|
-|Bonus trigger evaluation|Last 3 weeks of cup records|
+The window size for each use case is defined in the relevant feature's repository or service doc.
 
 ---
 
@@ -151,11 +110,3 @@ match /users/{userId}/{collection}/{docId} {
 ```
 
 All subcollections covered. No additional rules needed.
-
----
-
-## Performance at Scale
-
-- Free users: independent SQLite files, zero shared infrastructure, scales infinitely
-- Paid users: all reads from local Firestore cache — server reads only on sync
-- 100k paid users: subcollection structure means each user's queries only scan their own data

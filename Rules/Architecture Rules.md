@@ -1,4 +1,4 @@
-**File Name**: architecture_rules **Phase**: All phases **Created**: 15-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: architecture_rules **Phase**: All phases **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -14,20 +14,14 @@ Four layers. Each layer communicates downward only — never upward, never sidew
 Presentation   →   Widgets, providers (passive observers only)
 Application    →   Services, event subscriptions (all business logic lives here)
 Domain         →   Models, events (plain objects, no dependencies)
-Infrastructure →   Truly feature-agnostic utilities: EventBus, TickService,
-                   TemporalHelper, TickGuard, ErrorService
 Data           →   Repositories, data sources (all external communication)
 ```
 
-Within the Application layer, features are ordered in a strict dependency chain. See `feature_dependency_chain` for the full ordering. The chain runs from `UserCore` (lowest feature) through `Commitment`, `Activity`, `Performance`, the mid-level features, and up to `UserSettings` (highest feature). `Notification` sits just above `UserCore`, below `Commitment` — any feature may call it downward.
-
 **Presentation** — UI only. Renders state. Forwards user intent to services. No calculations, no conditions representing business rules, no event bus access.
 
-**Application** — all rules and logic live here. Services publish and subscribe to events. Services write state to providers for the presentation layer to observe.
+**Application** — all rules and logic live here. Services publish and subscribe to events. Services write state to providers for the presentation layer to observe. Features live in this layer, stacked in a dependency order.
 
 **Domain** — plain model and event objects. No logic, no dependencies on other layers.
-
-**Infrastructure** — cross-cutting utilities (clock, event bus, notifications, logging). No business logic, no domain models.
 
 **Data** — storage and external APIs. Nothing above this layer knows what is behind it.
 
@@ -37,59 +31,77 @@ Within the Application layer, features are ordered in a strict dependency chain.
 
 The application is organized into features. Each feature has exactly one responsibility and owns its model, service, and repository. No feature reaches into another feature's internals.
 
-**The service is the only public interface of a feature.** When one feature needs data from another, it calls that feature's service. It never touches the other feature's repository, model, or any internal detail.
+**The service is the only public interface of a feature.** When one feature needs data from another, it calls that feature's service — never the repository, never the model directly. This is the _Interface Segregation_ principle applied at the feature level.
 
 **A feature must be removable without changing any other feature.** The only impact of removal is that its events stop being published — subscribers stop receiving them and do nothing. If removing a feature requires editing another feature's code, the boundaries are wrong.
 
-**Intra-feature calls are allowed.** Two services within the same feature may call each other directly. The boundary rule applies across features, not within them.
+**Intra-feature calls are allowed.** Two services within the same feature may call each other directly. The boundary rules apply across features, not within them.
 
 **The test:** can you describe what this feature does in one sentence? If not, it has too many responsibilities.
 
 ---
 
-## 3. Cross-Feature Communication
+## 3. The Dependency Stack
 
-Three rules govern all communication across feature boundaries.
+Within the Application layer, features are stacked in a dependency order. A feature can only depend on features below it. Features at the same level cannot depend on each other. The full ordering is in `feature_dependency_chain`.
 
-**Rule A — Read through services.** When a feature needs data owned by another feature, it calls that feature's service. Never access another feature's repository or model directly.
+```
+  [Higher features]           ← depend on everything below
+        ↑
+  [Mid-level features]        ← depend on lower features
+        ↑
+  [Lower features]            ← depend only on infrastructure features
+        ↑
+  [Infrastructure features]   ← domain-agnostic, depend on nothing above them
+```
 
-**Rule B — React through events.** When a feature's state changes and another feature needs to react, the first feature publishes an event. The second feature subscribes. The publisher never calls the subscriber directly. The subscriber never polls the publisher.
+Infrastructure features sit at the base of the stack. They are features like any other — they have a service interface, they can be called downward — but they carry one additional rule: they must be completely domain-agnostic. An infrastructure feature knows nothing about commitments, instances, or any other domain concept. It provides a raw capability (time signals, event delivery, logging) and stops there..
 
-Events are for reactions to state changes, not for queries. A simple read does not need an event — Rule A handles that.
+Think of this as a building. The foundation does not know what floors are built on top of it. A floor can use anything below it — it cannot use anything above it or beside it.
 
-**Rule C — Dependencies flow one way.** Feature dependencies follow a fixed chain. No feature calls a feature above it in the chain. No circular dependencies. Ever. The chain is defined in `feature_dependency_chain`.
+**No sideways communication.** If Feature A calls Feature B at the same level, it means A depends on B — so B must move below A. Two features at the same level that need to share data are a signal that responsibilities need to be re-examined.
 
-This rule has a corollary that is equally non-negotiable:
-
-**Lower features never know upper features exist.** A lower feature publishes events and exposes service functions. It has no knowledge of who subscribes or who calls it. It never imports, calls, or subscribes to anything above it in the chain. Upper features watch lower features — never the reverse.
-
-This is not a preference — it is the structural guarantee that makes the entire system maintainable. If a lower feature must know about an upper feature to do its work, the responsibilities are in the wrong place. Move the logic upward, not the dependency downward.
-
-This principle corresponds to the Dependency Inversion Principle (SOLID) and is the core mechanism of Clean Architecture (Robert C. Martin). You do not need to know those names — the rule is self-evident from first principles: a foundation must not know what is built on top of it.
+**The test:** draw an arrow from the caller to the called. Does it point downward? If not, the dependency is forbidden.
 
 ---
 
-## 4. Event Bus
+## 4. Cross-Feature Communication
 
-The event bus is the backbone of cross-feature communication.
+Three rules govern all communication across feature boundaries.
 
-**Why event-driven?**
+**Rule A — Read downward through services.** When a feature needs data owned by a lower feature, it calls that feature's service. Never access another feature's repository or model directly.
 
-The alternative is direct calls: Feature A changes state and calls B, C, and D in sequence. This creates tight coupling — A must know about every dependent, adding a feature requires editing A, a failure in D breaks A. Event-driven inverts this: A publishes one event and stops. Subscribers are added, removed, or changed without touching A.
+**Rule B — Notify upward through events.** When a feature's state changes, it publishes an event. Any feature above it that needs to react subscribes to that event. The publisher never calls the subscriber. The subscriber never polls the publisher.
+
+This is the _Observer Pattern_. It is the only mechanism by which lower features communicate upward — they publish blindly, without knowing who (if anyone) is listening.
+
+**Rule C — Never subscribe upward.** A feature only subscribes to events from features below it. A lower feature never reacts to events from a higher feature. If you find yourself subscribing upward, the logic belongs higher in the stack — move it, do not bend the rule.
+
+**Events are for reactions, not queries.** If you need data, use Rule A. Events are only for broadcasting that something changed.
+
+---
+
+## 5. Why Event-Driven
+
+The problem with direct calls: if a lower feature needs to notify several higher features, it must import and call each of them. This creates upward dependencies — the foundation knows about the floors — which breaks the stack and creates circular dependencies.
+
+Events solve this cleanly. The lower feature publishes one event and stops. It never knows who reacts. Higher features subscribe independently, with no knowledge of each other.
+
+**This design enables future expansion.** Adding a new feature that reacts to an existing event requires zero changes to anything already written. The lower feature keeps publishing. The new feature subscribes. Nothing else changes.
 
 **Benefits:**
 
-_Incremental addition._ New features subscribe to existing events without modifying anything that already works.
+_No cycles._ A lower feature cannot accidentally call a higher feature — it can only publish.
 
-_Enforced separation._ The event bus is a physical gap between publisher and subscriber.
-
-_Isolated testing._ Publish a test event to verify a subscriber. Assert an event was published to verify a publisher.
+_Incremental addition._ New features subscribe to existing events without touching existing code.
 
 _Failure isolation._ A subscriber that throws does not affect the publisher or other subscribers.
 
+_Isolated testing._ Publish a test event to verify a subscriber. Assert an event was published to verify a publisher.
+
 **Drawbacks and mitigations:**
 
-_Debugging is harder._ No linear call stack. Mitigation: every subscriber logs its activation. The event catalog in `infrastructure_eventbus` lists every event and subscriber — keep it current.
+_Debugging is harder._ No linear call stack. Mitigation: every subscriber logs its activation. The event catalog in `event_catalog` lists every event and subscriber — keep it current.
 
 _Execution order is not guaranteed._ If Subscriber B needs the result of Subscriber A's reaction, design A to publish a second event when done — B subscribes to that.
 
@@ -97,15 +109,25 @@ _Execution order is not guaranteed._ If Subscriber B needs the result of Subscri
 
 - Publishers fire and forget — they never check who subscribed
 - Subscribers are fully independent — they never know who published
-- Change events carry the values that changed — no follow-up service call needed. Events never carry full model snapshots or unrelated data.
-- A feature's internal events are not part of its public interface — only events consumed by features above it in the chain are public. Example: CommitmentEvent is internal to Commitment and never subscribed to outside it.
+- Events carry only the values that changed — not full model snapshots, not unrelated data
+- A feature's internal events are not part of its public interface — only events consumed by features above it are public
 - The event bus is never used from the presentation layer — UI observes providers
 - Every subscription is cancelled when the service is disposed
 - Use direct service calls for write-back operations, not events
 
 ---
 
-## 5. Presentation Layer
+## 6. Tick Service
+
+The tick service fires periodic signals — a short-interval tick and a long-interval tick. Features that need time-based behavior subscribe to these ticks.
+
+**The tick service knows nothing about features.** It fires a timestamp and stops. What any subscriber does with that timestamp is none of its concern.
+
+**Idempotency is the subscriber's responsibility.** Because ticks fire on a schedule that does not align perfectly with real-world events (midnight, week boundaries), every tick subscriber must check whether it has already handled the current interval before doing any work. Use the shared tick guard utility for this.
+
+---
+
+## 7. Presentation Layer
 
 The presentation layer observes state — it never calculates, decides, or holds business logic.
 
@@ -116,8 +138,8 @@ The presentation layer observes state — it never calculates, decides, or holds
 
 **A widget never:**
 
-- Checks conditions to decide what to show — that lives in a provider or service
-- Calculates any derived value — that lives in a service
+- Checks conditions to decide what to show — that belongs in a provider or service
+- Calculates any derived value — that belongs in a service
 - Contains logic representing a business rule
 - Listens to events directly — it watches providers
 - Calls multiple services to assemble data — a provider does that
@@ -128,19 +150,19 @@ The presentation layer observes state — it never calculates, decides, or holds
 
 ---
 
-## 6. Service Rules
+## 8. Service Rules
 
 - Pure logic only — no platform or UI framework imports
 - Stateless where possible — same inputs, same outputs
 - No side effects outside the service's own domain
 - Services call other feature services only downward in the dependency chain
 - Services within the same feature may call each other directly
-- Services subscribe to events only from features they depend on — never from features above them
+- Services subscribe to events only from features below them in the chain
 - All constants and thresholds come from configuration — never hardcoded
 
 ---
 
-## 7. Repository Rules
+## 9. Repository Rules
 
 - A repository is called only by services within its own feature — no exceptions
 - One abstract interface per feature, with multiple concrete implementations possible
@@ -153,33 +175,59 @@ Not every feature needs a repository. Features that only compute or produce ephe
 
 ---
 
-## 8. Thin Model Principle
+## 10. Thin Model Principle
 
 Every model contains only the fields that define what the object _is_ — its identity, its core state, and its timestamps. Fields that represent what other features _know about_ the object do not belong on the model.
 
 When each feature owns its own data — linked by the object's ID — changes are completely contained within that feature.
 
-**How to apply it:** when an external feature needs to associate data with an object, it creates its own model linked by the object's ID and subscribes to the object's events.
+**How to apply it:** when a feature needs to associate data with another feature's object, it creates its own model linked by that object's ID and subscribes to its events.
 
-**The test:** if you removed this feature entirely, would the object's model need to change? If yes, the field does not belong on the object.
+**The test:** if you removed this feature entirely, would the other feature's model need to change? If yes, the field does not belong on that model.
 
 ---
 
-## 9. Type Safety
+## 11. Infrastructure Features
+
+Infrastructure features are ordinary features that sit at the absolute base of the dependency stack. Every other feature may call them downward. They call nothing above them — ever.
+
+What makes them infrastructure is one rule: **they must be completely domain-agnostic.** An infrastructure feature provides a raw capability — time signals, event delivery, notification dispatch, logging — with no knowledge of commitments, instances, users, or any other domain concept.
+
+**The test:** can this feature be dropped into a completely different app with zero changes? If not, it contains domain-specific logic that does not belong here — move that logic up into the appropriate domain feature, which then calls the infrastructure feature downward.
+
+For the specific infrastructure features available and their contracts, see `infrastructure_*` docs.
+
+---
+
+## 12. Notifications
+
+The notification system is designed as an abstraction, not a direct OS call. A feature that needs to notify the user constructs a `NotificationPayload` and passes it to the notification service. The notification service handles all delivery details.
+
+This separation means: features never know what notification mechanism is in use. The underlying implementation — local notifications, push notifications, in-app banners — can change without touching any feature.
+
+---
+
+## 13. Error Handling
+
+All unhandled errors are routed through a single centralized error handler. No feature implements its own top-level error handling.
+
+This separation means: error reporting, formatting, and recovery are defined in one place. Features report errors — they do not decide what to do with them.
+
+---
+
+## 14. Type Safety
 
 Code should make invalid states unrepresentable.
 
 **Use enums for fixed value sets with no variant-specific data.** Any field with a known, bounded set of values must be an enum. Enums are validated at compile time, self-documenting, and refactor-safe.
 
-Example — `CommitmentState`: every state is just a label, no state needs extra data. Enum is correct.
+Example — `CommitmentState`: every state is just a label, no state carries extra data. Enum is correct.
 
 **Use sealed classes for variant types where some variants carry data.** A sealed class is an enum where one or more variants carry additional fields. The compiler enforces exhaustive handling.
 
-Example — `Recurrence`: `Daily` and `Weekly` carry no extra data. `SpecificWeekDays` carries `weekDays`. The alternative — a plain enum plus a nullable `weekDays` field elsewhere — creates a conditionally valid field. The sealed class eliminates this: `SpecificWeekDays` always has `weekDays`, others never do.
+Example — `Recurrence`: `Daily` and `Weekly` carry no extra data. `SpecificWeekDays` carries `weekDays`. A plain enum plus a nullable `weekDays` field creates a conditionally valid field. The sealed class eliminates this — `SpecificWeekDays` always has `weekDays`, others never do.
 
-Sealed classes are also correct for events that carry variant-specific data.
-
-**Use classes for structured values.** When a concept has multiple related fields, model it as a named class. Classes provide type safety and are extended by adding typed fields. Maps are extended by convention and hope.
+**Use classes for structured values.** When a concept has multiple related fields, model it as a named class. Maps are extended by convention and hope. Classes are extended by adding typed fields.
 
 **Avoid primitive obsession.** A concept with two fields today will likely gain more. A class accommodates this without touching its consumers.
 
@@ -187,7 +235,7 @@ Sealed classes are also correct for events that carry variant-specific data.
 
 ---
 
-## 10. Configuration
+## 15. Configuration
 
 All tunable constants live in a central configuration object. All user preference defaults live in a separate preferences defaults object.
 
@@ -197,39 +245,7 @@ All tunable constants live in a central configuration object. All user preferenc
 
 ---
 
-## 11. Infrastructure Utilities
-
-Infrastructure utilities are available to all features. No business logic, no domain models.
-
-**Infrastructure is the foundation. It has no knowledge of any feature.**
-
-Infrastructure never imports, subscribes to, or calls any feature service, feature event, or feature model. It provides capabilities — clocks, event delivery, notification dispatch, logging — and stops there. Features use infrastructure; infrastructure never uses features.
-
-This is not a matter of preference. Infrastructure that knows about features is no longer infrastructure — it is a feature with extra responsibilities. The moment infrastructure subscribes to an `InstanceCreatedEvent`, it has taken on scheduling logic that belongs in a feature service. That logic must be moved up into the appropriate feature, which then calls infrastructure downward.
-
-**The test:** can this infrastructure utility be dropped into a completely different app with no changes? If not, it contains feature-specific logic that does not belong here.
-
-**Event bus** — delivers events between features. Knows nothing about what the events contain or who cares about them.
-
-**Tick service** — fires long-interval and short-interval ticks. Publishes raw timestamps only. No knowledge of what any subscriber will do with them.
-
-**Temporal helper** — answers semantic time questions using user preferences. No knowledge of commitments, instances, or any domain concept.
-
-**Tick guard** — shared idempotency for tick subscribers. Every tick subscriber uses this.
-
-**Notification service** — delivers a notification payload to the OS. Knows nothing about what triggered it or what feature it concerns.
-
-**Notification tracking** — records that a notification was sent, keyed by an arbitrary ID. No knowledge of what the ID represents.
-
-**Grace service** — schedules a follow-up callback after a configurable delay. No knowledge of what grace means in the domain.
-
-**Logging service** — records diagnostic output. No knowledge of what generated it.
-
-**Error handler** — centralised handling for unhandled exceptions. No feature implements its own top-level error handling.
-
----
-
-## 12. Testability
+## 16. Testability
 
 - Every service testable by injecting a mock repository and a mock event bus
 - Publishing a test event verifies subscriber behavior without wiring up the publisher
@@ -240,7 +256,7 @@ This is not a matter of preference. Infrastructure that knows about features is 
 
 ---
 
-## 13. Modularity Checklist
+## 17. Modularity Checklist
 
 Before building any new feature:
 
@@ -254,7 +270,7 @@ Before building any new feature:
 
 ---
 
-## 14. Core Feature
+## 18. Core Feature
 
 `core` is for screens and components that assemble data from multiple features and cannot be attributed to any single one. Presentation only.
 
