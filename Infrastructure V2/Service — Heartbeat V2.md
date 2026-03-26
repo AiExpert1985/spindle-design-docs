@@ -6,14 +6,6 @@
 
 ---
 
-## Why Heartbeat and TemporalHelper Are Separate
-
-Heartbeat's job is purely mechanical — fire at intervals, emit a timestamp. Interpreting what that timestamp means (is it midnight? is it the week boundary? is it within waking hours?) depends on the user's region and preferences. A user in Iraq has a different week start than a user in Europe.
-
-Merging interpretation into Heartbeat would require it to know about user preferences — making it domain-aware and breaking the infrastructure rule. Keeping them separate means Heartbeat has exactly one responsibility: producing ticks. `TemporalHelper` has exactly one responsibility: giving ticks cultural meaning. See `infrastructure_temporal_helper`.
-
----
-
 ## Design
 
 ```
@@ -45,23 +37,6 @@ class ShortIntervalTick { final DateTime timestamp; }
 ### `getLastTickTimestamp() → DateTime?`
 
 Returns the timestamp of the last tick fired, or null on first launch. Persisted to local storage on every tick before emitting. Used by any feature on app open to detect missed boundaries while the app was closed — the feature reads this value and processes any missed intervals through its normal tick handler using TickGuard for idempotency.
-
----
-
-## TickGuard
-
-Shared idempotency utility for all tick subscribers. Prevents double-execution when the OS fires two ticks in the same period or when catch-up ticks replay missed intervals.
-
-```dart
-class TickGuard {
-  bool shouldRun(String actionKey, dynamic period);
-  void markRan(String actionKey, dynamic period);
-}
-```
-
-`period` is a `Date` for daily actions, week-start `DateTime` for weekly, truncated `DateTime` for within-day actions. State held in memory — resets on app restart. Safe because all tick operations are idempotent at the data layer.
-
-**Every tick subscriber must use TickGuard. Never implement custom idempotency.**
 
 ---
 
@@ -147,7 +122,7 @@ WorkManager does not guarantee exact intervals. Long interval: expect 10–20 mi
 - `TickService` is the abstraction — never reference `DefaultTickService` or `DualTickService` outside dependency injection
 - Tick events carry timestamp only — no pre-computed booleans, no domain knowledge
 - Subscribers use `TemporalHelper` for all time-based condition checks — never raw timestamp comparisons
-- Subscribers use `TickGuard` for idempotency — never custom implementations
+- Subscribers that run logic without consuming a record use `TickGuard` for idempotency — see `tick_guard`
 - Heartbeat never calls any feature service — it only emits ticks
 - `getLastTickTimestamp()` returns null on first launch — callers must handle null
 - Adding a new time-based behavior requires zero changes to Heartbeat

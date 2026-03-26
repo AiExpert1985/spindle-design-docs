@@ -1,30 +1,30 @@
-**File Name**: event_catalog **Feature**: Infrastructure **Phase**: 1 **Created**: 21-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: event_catalog **Phase**: All phases **Created**: 21-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
-**Purpose:** quick reference for all events in the system — what each event carries and who publishes it. For who subscribes to each event, see `feature_dependency_chain`. For how the event bus works, see `infrastructure_eventbus`.
+**Purpose:** quick reference for all events in the system — what each event carries and who publishes it. For who subscribes to each event, see `feature_dependency_chain`.
 
 ---
 
 ## Tick Events
 
-Published by: TickService (Infrastructure)
+Published by: Heartbeat
 
 ```
-LongIntervalTickEvent
+LongIntervalTick
   timestamp: DateTime
 
-ShortIntervalTickEvent
+ShortIntervalTick
   timestamp: DateTime
 ```
 
-Raw timestamps only. Subscribers use TemporalHelper to interpret. TickService never publishes boundary events — boundaries are culturally relative and require user preferences to detect. Feature services detect boundaries using TemporalHelper and publish the appropriate events themselves.
+Raw timestamps only. Subscribers use `TemporalHelper` to interpret. Heartbeat never publishes boundary events — boundaries are culturally relative and require user preferences to detect. Feature services detect boundaries using `TemporalHelper` and publish the appropriate domain events themselves.
 
 ---
 
 ## Boundary Events
 
-Published by: CommitmentIdentityService (Commitment feature) — detects day and week boundaries on `LongIntervalTickEvent` using `TemporalHelper`.
+Published by: CommitmentIdentityService (Commitment feature) — detects day and week boundaries on `LongIntervalTick` using `TemporalHelper`.
 
 ```
 WeekEndedEvent
@@ -97,9 +97,9 @@ ActivityEvent
   value: double?            // null on deleted
 ```
 
-One event covers all three write operations. PerformanceService recalculates identically regardless of type. Encouragement subscribes to `created` only. `value` is null on deleted.
+One event covers all three write operations. `PerformanceService` recalculates identically regardless of type. `Encouragement` subscribes to `created` only. `value` is null on deleted.
 
-No `instanceId` — PerformanceService identifies the instance from `definitionId` + `loggedAt` date. Grace-period logs work naturally with this design.
+No `instanceId` — `PerformanceService` identifies the instance from `definitionId` + `loggedAt` date.
 
 All other downstream reactions (Rewards, Garment) watch `PerformanceUpdatedEvent` — not `ActivityEvent` directly.
 
@@ -119,20 +119,6 @@ PerformanceUpdatedEvent
 ```
 
 `isClosed: true` signals the final result for a closed window. Features that act only on final results (Rewards, Encouragement) filter on this flag.
-
----
-
-## Notification Events
-
-Published by: NotificationService (Notification feature)
-
-```
-NotificationActionEvent
-  actionId: String
-  params: Map<String, String>
-```
-
-Published when the user taps an action button on a rich notification. `actionId` matches the `NotificationAction.id` set by the caller when constructing the payload. `params` carries the arbitrary key-value data the caller attached. Subscribers filter on `actionId` — the Notification feature never knows what any action means.
 
 ---
 
@@ -162,6 +148,17 @@ GlobalBestStreakEvent
 
 ---
 
+## Achievement Events
+
+Published by: AchievementService
+
+```
+AchievementEarnedEvent
+  record: AchievementRecord
+```
+
+---
+
 ## Progression Events
 
 Published by: ProgressionService
@@ -184,4 +181,6 @@ BonusThreadAwardedEvent
 
 **`livePerformance` changes** are signalled by `PerformanceUpdatedEvent`, not `InstanceUpdatedEvent`. The two event types have distinct meanings — structural instance changes vs performance value changes. Keeping them separate prevents features from receiving noise unrelated to their concern.
 
-**Internal events** (CommitmentEvent) are not part of the application's public event surface. They exist only for coordination within the Commitment feature. No other feature should ever subscribe to them.
+**Internal events** (`CommitmentEvent`) are not part of the application's public event surface. They exist only for coordination within the Commitment feature. No other feature should ever subscribe to them.
+
+**Tick events carry timestamps only.** No feature ever publishes a `DayEndedEvent` or `MidnightEvent` from Heartbeat directly. Each feature that needs to react to a time boundary detects it independently using `TemporalHelper`.

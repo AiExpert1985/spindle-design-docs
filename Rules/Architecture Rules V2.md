@@ -87,6 +87,8 @@ The problem with direct calls: if a lower feature needs to notify several higher
 
 Events solve this cleanly. The lower feature publishes to its own stream and stops. It never knows who reacts. Higher features subscribe independently, with no knowledge of each other.
 
+**Each feature owns its own event streams — there is no centralized event bus.** A centralized bus would allow any feature to subscribe to any other feature's events regardless of stack position, making the one-way rule enforceable only by discipline. With per-feature streams, the rule is enforced structurally — a lower feature cannot import an upper feature, so it cannot subscribe to its events even if it wanted to.
+
 **This design enables future expansion.** Adding a new feature that reacts to an existing event requires zero changes to anything already written. The lower feature keeps publishing. The new feature subscribes. Nothing else changes.
 
 **Benefits:**
@@ -114,8 +116,6 @@ _Execution order is not guaranteed._ If Subscriber B needs the result of Subscri
 - Events are never consumed from the presentation layer — UI observes providers
 - Every subscription is cancelled when the service is disposed
 - Use direct service calls for write-back operations, not events
-
-**Each feature owns its own event streams.** There is no centralized event bus. A feature exposes its events as part of its service interface. Upper features subscribe by importing the lower feature's service — which the stack already permits. This is intentional: a centralized bus would allow any feature to subscribe to any other feature's events regardless of stack position, making the one-way rule enforceable only by discipline. With per-feature streams, the rule is enforced structurally — a lower feature cannot import an upper feature, so it cannot subscribe to its events even if it wanted to.
 
 ---
 
