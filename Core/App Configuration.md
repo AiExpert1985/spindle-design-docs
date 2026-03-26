@@ -1,4 +1,4 @@
-**File Name**: appconfiguration **Feature**: Config **Phase**: 1 **Created**: 18-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: appconfiguration **Feature**: Core **Phase**: 1 **Created**: 18-Mar-2026 **Modified**: 24-Mar-2026
 
 ---
 
