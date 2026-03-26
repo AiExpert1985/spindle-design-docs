@@ -20,7 +20,7 @@ Expected placement: overlaid on the current screen when `DayCelebrationSignal` i
 
 **Path A — In-app:** `EncouragementService` detects all commitment windows for today are closed via `PerformanceUpdatedEvent(isClosed: true)`. If day score meets threshold → emits `DayCelebrationSignal`. Presentation layer shows the overlay immediately.
 
-**Path B — Notification:** `EncouragementService` fires on `LongIntervalTickEvent` near the configured celebration time (default 9pm). Checks day score, selects story, emits `DayCelebrationSignal`. `NotificationService` subscribes and sends the notification.
+**Path B — Notification:** `EncouragementService` fires on `LongIntervalTickEvent` near the configured celebration time (default 9pm). Checks day score, selects story, emits `DayCelebrationSignal`. Also calls `NotificationService.send()` directly with the celebration notification.
 
 Notification examples:
 

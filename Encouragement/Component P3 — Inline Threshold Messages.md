@@ -41,6 +41,6 @@ Shown inline after a log, at meaningful score crossings only — never on every 
 
 ## Dependencies
 
-- EventBus — subscribes to `ActivityRecordedEvent` to detect first log of the day
+- EventBus — subscribes to `ActivityEvent` to detect first log of the day
 - EventBus — subscribes to `PerformanceUpdatedEvent` to detect milestone crossings
 - `PerformanceService.getDayScore()` — overall day score check

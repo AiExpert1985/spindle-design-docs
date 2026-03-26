@@ -51,11 +51,11 @@
 
 **Recurrence** — Daily, Weekly, or Specific days. Selecting Specific days reveals a day-picker row inline. Defaults to Daily.
 
-**Window start** — when the activity window opens, in local time. Defaults from `UserDefaultPreferences` based on recurrence type.
+**Window start** — when the activity window opens, in local time. Defaults from `UserCoreService.getActivityWindowDefaults(recurrence)`.
 
-**Window duration** — how long the window lasts. Defaults from `UserDefaultPreferences` based on recurrence type.
+**Window duration** — how long the window lasts. Defaults from `UserCoreService.getActivityWindowDefaults(recurrence)`.
 
-**Warning notification** — on or off. When on, a reminder fires at 3/4 of the window duration. Defaults from `UserDefaultPreferences.warningNotificationsEnabled`. Maps to `activityWindow.warningEnabled`.
+**Warning notification** — on or off. When on, a reminder fires at 3/4 of the window duration. Defaults from `UserCoreService.getProfile().warningNotificationsEnabled`. Maps to `activityWindow.warningEnabled`.
 
 **Description** — optional. Personal note or motivation. Shown on the Commitment Detail screen. No effect on behaviour.
 

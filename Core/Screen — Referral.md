@@ -61,10 +61,10 @@ Referral link format: `spindle.app/join?ref={code}`
 
 ## Referral Mechanics
 
-- Each Pro / Premium user has a permanent referral code on their `UserProfile` — generated once at account creation
+- Each Pro / Premium user has a permanent referral code on their `UserSettingsProfile` — generated once at account creation
 - When someone installs via the link, they receive 30% off their first month at the paywall — applied via RevenueCat promotional offers, no custom backend needed
 - A referral is **activated** only after the referred user earns their first cup — one full week of performance at ≥ 60%
-- Activated referral count is stored on `UserProfile.activatedReferralCount` — incremented via Firebase Cloud Function when the referred user's first cup is written, never by the app directly
+- Activated referral count is stored on `UserSettingsProfile.activatedReferralCount` — incremented via Firebase Cloud Function when the referred user's first cup is written, never by the app directly
 
 ---
 
@@ -78,12 +78,12 @@ Referral link format: `spindle.app/join?ref={code}`
 
 ## Data Sources
 
-| Data | Source |
+|Data|Source|
 |---|---|
-| Current level and points | `ProgressionService.getProgressionSummary()` |
-| Referral code | `UserProfile.referralCode` |
-| Activated referral count | `UserProfile.activatedReferralCount` |
-| Referral unlock status | `ProgressionService.isReferralUnlocked()` |
+|Current level and points|`ProgressionService.getProgressionSummary()`|
+|Referral code|`UserSettingsProfile.referralCode`|
+|Activated referral count|`UserSettingsProfile.activatedReferralCount`|
+|Referral unlock status|`ProgressionService.isReferralUnlocked()`|
 
 ---
 

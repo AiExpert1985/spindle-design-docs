@@ -6,7 +6,7 @@
 
 Expected placement: top-right of the Commitment Detail screen, rendered as the ⋮ menu trigger.
 
-Soft delete is not handled here — it is a destructive action with different intent and lives as a separate action elsewhere. This component covers lifecycle transitions only.
+Restore (deleted → active) is handled by the Recycle Bin screen — see `screen_recycle_bin`. This component covers the lifecycle transitions available while the commitment is visible in normal views.
 
 ---
 
@@ -20,6 +20,7 @@ The menu shows only the transitions valid for the commitment's current state. In
 Edit
 Freeze
 Mark as Complete
+Delete
 ```
 
 **Frozen:**
@@ -27,13 +28,14 @@ Mark as Complete
 ```
 Edit
 Unfreeze
+Delete
 ```
 
 **Completed:**
 
 ```
-(no state transitions available)
 Edit
+Delete
 ```
 
 ---
@@ -75,6 +77,17 @@ Your history is preserved permanently.
 [ Mark Complete ]   [ Cancel ]
 ```
 
+**Delete:**
+
+```
+Delete "Morning Walk"?
+
+It will be moved to the recycle bin.
+You can restore it any time.
+
+[ Delete ]   [ Cancel ]
+```
+
 On cancel — dialog closes, nothing changes.
 
 ---
@@ -86,6 +99,9 @@ On cancel — dialog closes, nothing changes.
 |Active → Frozen|`CommitmentService.freezeCommitment(id)`|
 |Frozen → Active|`CommitmentService.unfreezeCommitment(id)`|
 |Active → Completed|`CommitmentService.completeCommitment(id)`|
+|Active → Deleted|`CommitmentService.deleteCommitment(id)`|
+|Frozen → Deleted|`CommitmentService.deleteCommitment(id)`|
+|Completed → Deleted|`CommitmentService.deleteCommitment(id)`|
 
 Edit navigates to the Commitment Form — not a state transition, but included in the menu as it belongs to the same management surface.
 
@@ -94,8 +110,8 @@ Edit navigates to the Commitment Form — not a state transition, but included i
 ## Rules
 
 - Only valid transitions for the current state are shown — never show an impossible action
-- Soft delete is excluded — handled separately
-- Completed is a terminal state — no forward transitions, menu shows Edit only
+- Delete is available from any non-deleted state — a user must always be able to remove a commitment
+- Completed is a terminal forward state — no forward transitions beyond delete
 - No state is changed until the user confirms the dialog
 
 ---

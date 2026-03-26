@@ -76,7 +76,7 @@ Used by `ScoringService` via `AchievementService.getCupsSince()`.
 
 ## Dependencies
 
-- EventBus — subscribes to `WeekEndedEvent`; publishes `CupEarnedEvent`
+- EventBus — subscribes to `WeekEndedEvent` (published by CommitmentIdentityService); publishes `CupEarnedEvent`
 - `PerformanceService.getOverallWeekScore()` — raw weekly score
 - `CupRepository` — reads and writes `WeeklyCup`
 - `AppConfig` — cup threshold constants

@@ -91,27 +91,13 @@ Both paths open the same dialog. The only difference is `dateLocked`.
 
 ## Notification Actions
 
-Window-close notification varies by `commitmentType`:
+The window-close notification is constructed and scheduled by `CommitmentNotificationSchedulerService` — see that doc for the full payload definition. The dialog is only involved when the user taps "Log" on a numerical commitment.
 
-**Binary:**
+**Binary commitment action — "Done":** calls `ActivityService.recordEntry(value: 1, loggedAt: windowDate)` directly. The dialog is not opened.
 
-```
-"Morning Run — time is up"
-[ Done ]  [ 15 more minutes ]  [ Dismiss ]
-```
+**Numerical commitment action — "Log":** opens this dialog with `dateLocked: true` and `date: windowDate`.
 
-"Done" calls `ActivityService.recordEntry(value: 1, loggedAt: windowDate)` directly — dialog not shown. Same code path as manual binary confirmation.
-
-**Numerical:**
-
-```
-"Morning Run — time is up"
-[ Log ]  [ 15 more minutes ]  [ Dismiss ]
-```
-
-"Log" opens the dialog with `dateLocked: true` and `date: windowDate`.
-
-**"15 more minutes"** — calls `GraceService.grantGrace(definitionId, windowDate)`. Schedules a re-notification after the grace period. One grace per window.
+**"15 more minutes" action:** carries `actionId: 'grant_grace'` in the notification payload. `GraceService` subscribes to `NotificationActionEvent` and handles it. The dialog is not involved — this is a notification-level action, not a UI action.
 
 **Dismiss** — no log written. No grace created.
 

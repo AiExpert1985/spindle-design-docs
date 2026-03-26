@@ -60,7 +60,7 @@ Used internally for interval calculation.
 
 ## Dependencies
 
-- EventBus — subscribes to `WeekEndedEvent`; publishes `RewardEarnedEvent`
+- EventBus — subscribes to `WeekEndedEvent` (published by CommitmentIdentityService); publishes `RewardEarnedEvent`
 - `RewardRepository` — reads and writes `RewardRecord`
 - `PerformanceService.getPerformanceForPeriod()` — rolling period score
 - `AppConfig` — `rewardIntervalDays`, `rewardPerformanceThreshold`

@@ -110,7 +110,7 @@ ActivityWindow
 - **commitmentType** — do or avoid. Carried from the definition so performance calculation never needs the definition.
 - **recurrence** — used to calculate the next window start when this instance spawns its successor. For SpecificWeekDays, the sealed class carries the configured days directly.
 - **regenerationWindow** — the accountability period. `windowStart` and `windowEnd` are immutable after creation.
-- **activityWindow** — the user's preferred time-of-day slot and notification settings. `warningEnabled` lives here because it governs notification behaviour for this window specifically.
+- **activityWindow** — the user's preferred time-of-day slot and notification settings. `warningEnabled` lives here because it governs notification behaviour for this window specifically. The default spans the full day (from `dayBoundaryHour` to the next `dayBoundaryHour`), meaning no time restriction. The user narrows it only when they want to force a specific slot — for example, morning exercise from 08:00–10:00. The activity window governs notification timing only; the instance always lives its full `regenerationWindow` duration regardless.
 - **currentTarget** — the target in effect for this window. Updated when the definition target changes so performance is always calculated against the correct value.
 - **commitmentState** — the commitment's current lifecycle state. Updated by CommitmentIdentityService whenever the commitment changes. Features read this instead of querying the definition. Example: ActivityService checks `instance.commitmentState == active` before accepting a log.
 - **status** — pending or closed. One-way transition. Change from pending to closed triggers `InstanceUpdatedEvent`.
@@ -127,5 +127,5 @@ ActivityWindow
 - `regenerationWindow`, `recurrence`, `commitmentType`, `createdAt` are immutable after creation
 - `livePerformance` changes do not trigger `InstanceUpdatedEvent` — signalled by `PerformanceUpdatedEvent`
 - Exactly one pending instance per commitment at all times
-- `livePerformance` is never defaulted to zero — always initialised by recalculation immediately after creation
+- `livePerformance` is initialized to `0.0` on creation. PerformanceService receives `InstanceCreatedEvent` and immediately recalculates from logged activity — the `0.0` is a valid ground state before any activity exists, not a permanent value
 - Status change from pending to closed always triggers `InstanceUpdatedEvent`

@@ -8,7 +8,7 @@
 
 ## Design
 
-Encouragement is a read-only reactor. It subscribes to events from below, reads what it needs to select the right response, and emits a signal. The signal is ephemeral — consumed once by the presentation layer and cleared. Nothing is stored except `lastEncouragementType` on `UserProfile` for story deduplication, written through `UserService`.
+Encouragement is a read-only reactor. It subscribes to events from below, reads what it needs to select the right response, and emits a signal. The signal is ephemeral — consumed once by the presentation layer and cleared. Nothing is stored except `lastEncouragementType` on `UserSettingsProfile` for story deduplication, written through `UserSettingsService`.
 
 ---
 
@@ -135,16 +135,17 @@ DayCelebrationSignal
 ```
 dayScore = PerformanceService.getDayScore(date)
 facts = AnalyticsService.computeDayFacts(date)
-lastType = UserService.getLastEncouragementType()
+prefs = UserCoreService.getProfile()
+lastType = UserSettingsService.getLastEncouragementType()
 
 storyType = _selectStory(facts, lastType)
 storyText = _buildStoryText(storyType, facts, dayScore)
 
-UserService.recordEncouragementSent(storyType)
+UserSettingsService.recordEncouragementSent(storyType)
 emit DayCelebrationSignal(dayScore, storyType, storyText)
 ```
 
-Seven story types selected by priority. Type 6 always applies as fallback. Never repeats the same type two consecutive days — deduplication via `lastEncouragementType` on `UserProfile`.
+Seven story types selected by priority. Type 6 always applies as fallback. Never repeats the same type two consecutive days — deduplication via `lastEncouragementType` on `UserSettingsProfile`.
 
 |Priority|Type|Example|
 |---|---|---|
@@ -160,7 +161,7 @@ Seven story types selected by priority. Type 6 always applies as fallback. Never
 
 ## Rules
 
-- No persistent storage — `lastEncouragementType` on `UserProfile` is the only exception, written through `UserService`
+- No persistent storage — `lastEncouragementType` on `UserSettingsProfile` is the only exception, written through `UserSettingsService`
 - Tick subscription uses `TickGuard` — celebration fires at most once per day
 - `LogFeedbackSignal` and `ThresholdMessageSignal` deferred to Phase 2 (Dashboard card interaction not yet designed)
 - Threshold crossings tracked in memory — fire once per crossing per session, never stored
@@ -175,5 +176,6 @@ Seven story types selected by priority. Type 6 always applies as fallback. Never
 - `PerformanceService.getDayScore()` — day score for celebration threshold check
 - `CommitmentIdentityService.getInstancesForDay()` — checks all windows are closed (Path A)
 - `AnalyticsService.computeDayFacts()` — story selection
-- `UserService` — celebration preferences, story deduplication
+- `UserCoreService.getProfile()` — celebration preferences (celebrationEnabled, celebrationTime, celebrationThreshold)
+- `UserSettingsService.recordEncouragementSent()` — story deduplication
 - Riverpod providers — destination for all emitted signals

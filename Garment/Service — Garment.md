@@ -133,7 +133,7 @@ The running delta for the current week. Used by the garment display to show "Thi
 
 ## Dependencies
 
-- EventBus — subscribes to `InstanceCreatedEvent`, `PerformanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`, `WeekEndedEvent`; publishes `GarmentUpdatedEvent`
+- EventBus — subscribes to `InstanceCreatedEvent`, `PerformanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`, `WeekEndedEvent` (published by CommitmentIdentityService); publishes `GarmentUpdatedEvent`
 - `GarmentRepository` — reads and writes `GarmentProfile` and `CommitmentWeeklyProgress`
 - `CommitmentService.getDefinition()` — reads definition once at garment creation
 - `AcceleratorService.getMultiplier()` — called by `_getPerformance()` when `garmentUsesAccelerator` is true. `AcceleratorService` calls `StreakService.getStreakRecord()` directly — Streak is an independent feature below Garment in the chain, a valid downward call

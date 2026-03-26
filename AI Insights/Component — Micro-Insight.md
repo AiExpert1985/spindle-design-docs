@@ -74,4 +74,4 @@ This insight will be replaced when you regenerate.
 - `AnalyticsService` — stats and notes payload
 - `AIInsightService` — AI reasoning
 - `AIInsightRepository` — last insight storage
-- `UserService.canAccessFeature()` — tier gate
+- `UserCoreService.getTier()` — tier gate

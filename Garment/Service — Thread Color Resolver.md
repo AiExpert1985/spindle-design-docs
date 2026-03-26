@@ -34,6 +34,7 @@ Returns a list of hex color strings. The number of colors returned matches the m
 Selects colors randomly from a curated set of vivid, distinct hues. The set is hand-picked to ensure colors look good together and are visually distinguishable on the garment canvas.
 
 Rules for the random selection:
+
 - No two adjacent colors in the list are too similar in hue
 - Colors are saturated and warm — consistent with the handcraft aesthetic
 - The same `definitionId` always produces the same colors — uses the ID as a seed for deterministic randomness
@@ -54,4 +55,4 @@ Deterministic seeding means the same commitment always gets the same colors, eve
 ## Dependencies
 
 - None for the random implementation
-- `UserService.getTier()` — for future implementations that require tier checks
+- `UserCoreService.getTier()` — for future implementations that require tier checks

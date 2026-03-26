@@ -25,29 +25,11 @@ One app-wide singleton, injected via dependency injection.
 
 ---
 
-## TickGuard
-
-Shared idempotency utility for all tick subscribers. Prevents double-execution when the OS fires two ticks in the same period.
-
-```dart
-class TickGuard {
-  bool shouldRun(String actionKey, dynamic period);
-  void markRan(String actionKey, dynamic period);
-}
-```
-
-`period` is a `Date` for daily actions, week-start `DateTime` for weekly, truncated `DateTime` for within-day actions. State held in memory — resets on app restart. Safe because all tick operations are idempotent at the data layer.
-
-**Every tick subscriber must use TickGuard. Never implement custom idempotency.**
-
----
-
 ## Rules
 
 - Never use the event bus from the presentation layer — UI observes Riverpod providers
 - Events are immutable value objects — no logic, no mutable state
 - Tick events carry timestamp only — subscribers interpret via TemporalHelper
-- Every tick subscriber uses TickGuard
 - Publishers fire and forget — never check who subscribed
 - Every subscription cancelled on service dispose
 - Change events carry the values that changed — subscribers do not need a follow-up service call

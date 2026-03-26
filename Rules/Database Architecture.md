@@ -50,7 +50,10 @@ All user data stored under the user's document as subcollections:
 /users/{userId}/weeklyCups/{id}          ← WeeklyCup (Rewards feature)
 /users/{userId}/progression/{id}         ← ProgressionProfile (Progression feature) — one doc
 /users/{userId}/aiInsights/{id}          ← AIInsightRecord (AI Insights feature)
-/users/{userId}/profile/{id}             ← UserProfile (User feature) — one doc
+/users/{userId}/coreProfile/{id}         ← UserCoreProfile (UserCore feature) — one doc
+/users/{userId}/settingsProfile/{id}     ← UserSettingsProfile (UserSettings feature) — one doc
+/users/{userId}/scheduledNotifications/{id} ← ScheduledNotification (Notification feature)
+/users/{userId}/graceRecords/{id}        ← GraceRecord (Grace feature)
 ```
 
 **Why subcollections:**
@@ -73,11 +76,14 @@ Each subcollection is owned by exactly one repository, which is called only by i
 |commitments, instances|CommitmentRepository|Commitment|
 |logEntries|ActivityRepository|Activity|
 |performanceEntries|PerformanceRepository|Performance|
-|weeklyProgress|CommitmentRepository|Garment (via Commitment)|
-|weeklyCups|RewardRepository|Rewards|
+|weeklyProgress|GarmentRepository|Garment|
+|weeklyCups|CupRepository|Cups|
 |progression|ProgressionRepository|Progression|
 |aiInsights|AIInsightRepository|AI Insights|
-|profile|UserRepository|User|
+|coreProfile|UserCoreRepository|UserCore|
+|settingsProfile|UserSettingsRepository|UserSettings|
+|scheduledNotifications|NotificationRepository|Notification|
+|graceRecords|GraceRepository|Grace|
 
 ---
 

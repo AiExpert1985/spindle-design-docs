@@ -1,36 +1,24 @@
-**Created**: 15-Mar-2026 **Modified**: 18-Mar-2026 **Phase**: 1 **Feature**: Infrastructure
+**Created**: 15-Mar-2026 **Modified**: 26-Mar-2026 **Phase**: 1 **Feature**: Infrastructure
 
-**Purpose:** a clock with two interval tiers. Publishes `LongIntervalTickEvent` and `ShortIntervalTickEvent` carrying only a raw timestamp. Tick events carry no pre-computed booleans — subscribers use `TemporalHelper` to interpret what a timestamp means for their user. The scheduler knows nothing about features, boundaries, or preferences.
-
----
-
-## Design Philosophy
-
-The scheduler applies the same event bus philosophy to time. It announces that time has passed and steps back. What that moment means — is it midnight? is it the week boundary? is it waking hours? — is determined by `TemporalHelper` inside each subscriber using the user's own preferences.
-
-Three things are strictly separated:
-
-```
-Scheduler      → fires at intervals, publishes raw timestamps
-TemporalHelper → interprets timestamps using user preferences
-Subscribers    → decide what to do when conditions are met
-```
-
-None of these knows about the others' concerns.
+**Purpose:** a clock with two interval tiers. Publishes `LongIntervalTickEvent` and `ShortIntervalTickEvent` carrying only a raw timestamp. Knows nothing about what the timestamp means, who subscribes, or what any subscriber will do. It fires and steps back.
 
 ---
 
-## Two-Layer Design
+## Why Scheduler and TemporalHelper Are Separate
+
+The scheduler's job is purely mechanical — fire at intervals, publish a timestamp. Interpreting what that timestamp means (is it midnight? is it the week boundary? is it waking hours?) is a separate concern that depends on the user's region and personal preferences. A user in Iraq has a different week start than a user in Europe. Midnight means the same clock time everywhere but a different cultural boundary depending on configuration.
+
+Merging interpretation into the scheduler would require it to know about user preferences — making it feature-aware and breaking the infrastructure rule. Keeping them separate means the scheduler has exactly one responsibility: producing ticks. `TemporalHelper` has exactly one responsibility: giving ticks cultural meaning. See `infrastructure_temporal_helper`.
+
+---
+
+## Design
 
 ```
-Subscribers (feature services using TemporalHelper)
-    ↑  LongIntervalTickEvent / ShortIntervalTickEvent
-TickService (abstract)         ← the abstraction
-    ↓
-TickServiceImpl                ← WorkManager implementation (swappable)
-    ↓
-BackgroundSchedulerAdapter     ← WorkManager/BGTaskScheduler abstraction
+BackgroundScheduler  →  TickService  →  EventBus  →  subscribers
 ```
+
+`BackgroundScheduler` is the platform adapter — it receives WorkManager callbacks and calls `TickService.onFire(timestamp)`. `TickService` creates the event and publishes it on the `EventBus`. Subscribers never know about WorkManager or any platform detail.
 
 ---
 
@@ -38,14 +26,10 @@ BackgroundSchedulerAdapter     ← WorkManager/BGTaskScheduler abstraction
 
 ```dart
 abstract class TickService {
-  // Long interval — ~15 minutes. For things that can wait.
-  // Instance generation, week boundaries, cup calculation triggers,
-  // day celebration timing, AI summary triggers.
   Stream<LongIntervalTickEvent> get longIntervalTick;
-
-  // Short interval — ~1 minute. For things where users notice delay.
-  // Window warnings, predictive friction, realtime status checks.
   Stream<ShortIntervalTickEvent> get shortIntervalTick;
+  void onFire(DateTime timestamp);
+  DateTime? getLastTickTimestamp();
 }
 ```
 
@@ -61,7 +45,26 @@ class ShortIntervalTickEvent extends AppEvent {
 }
 ```
 
-No booleans. No pre-computed fields. Raw timestamp only. `TemporalHelper` does the interpretation.
+### `getLastTickTimestamp() → DateTime?`
+
+Returns the timestamp of the last tick fired, or null on first ever launch. Persisted to local storage on every tick before publishing. Used by any feature on app open to detect missed boundaries while the app was closed — the feature reads this value and processes any missed intervals through its normal tick handler using TickGuard for idempotency.
+
+---
+
+## TickGuard
+
+Shared idempotency utility for all tick subscribers. Prevents double-execution when the OS fires two ticks in the same period or when catch-up ticks replay missed intervals.
+
+```dart
+class TickGuard {
+  bool shouldRun(String actionKey, dynamic period);
+  void markRan(String actionKey, dynamic period);
+}
+```
+
+`period` is a `Date` for daily actions, week-start `DateTime` for weekly, truncated `DateTime` for within-day actions. State held in memory — resets on app restart. Safe because all tick operations are idempotent at the data layer.
+
+**Every tick subscriber must use TickGuard. Never implement custom idempotency.**
 
 ---
 
@@ -72,6 +75,7 @@ One WorkManager periodic task, ~15 minutes. Both streams receive the same tick.
 ```dart
 class DefaultTickService implements TickService {
   final _controller = StreamController<TickEvent>.broadcast();
+  DateTime? _lastTimestamp;
 
   @override
   Stream<LongIntervalTickEvent> get longIntervalTick =>
@@ -80,9 +84,14 @@ class DefaultTickService implements TickService {
   @override
   Stream<ShortIntervalTickEvent> get shortIntervalTick =>
       _controller.stream.map((e) => ShortIntervalTickEvent(e.timestamp));
-  // Same underlying stream — short interval subscribers get ~15 min ticks in Phase 1
 
-  void onWorkManagerFire(DateTime now) {
+  @override
+  DateTime? getLastTickTimestamp() => _lastTimestamp;
+
+  @override
+  void onFire(DateTime now) {
+    _lastTimestamp = now;
+    _persistLastTimestamp(now);   // local storage write
     _controller.add(TickEvent(now));
   }
 }
@@ -100,64 +109,48 @@ Two separate WorkManager tasks when short-interval accuracy matters.
 class DualTickService implements TickService {
   final _long  = StreamController<LongIntervalTickEvent>.broadcast();
   final _short = StreamController<ShortIntervalTickEvent>.broadcast();
+  DateTime? _lastTimestamp;
 
   @override
   Stream<LongIntervalTickEvent>  get longIntervalTick  => _long.stream;
   @override
   Stream<ShortIntervalTickEvent> get shortIntervalTick => _short.stream;
+  @override
+  DateTime? getLastTickTimestamp() => _lastTimestamp;
 
-  void onLongFire(DateTime now)  => _long.add(LongIntervalTickEvent(now));
+  void onLongFire(DateTime now)  {
+    _lastTimestamp = now;
+    _persistLastTimestamp(now);
+    _long.add(LongIntervalTickEvent(now));
+  }
   void onShortFire(DateTime now) => _short.add(ShortIntervalTickEvent(now));
 }
 ```
 
-Swapping from `DefaultTickService` to `DualTickService` requires changing one dependency injection binding. Every subscriber is completely unaffected — they subscribed to `longIntervalTick` or `shortIntervalTick`, not to an implementation.
+Swapping from `DefaultTickService` to `DualTickService` requires changing one dependency injection binding. Every subscriber is completely unaffected.
 
 ---
 
-## Who Subscribes to Which
+## App Open Catch-Up
 
-**Long interval tick:**
+On app open, any feature that needs to process missed boundaries calls `getLastTickTimestamp()` and compares against the current time. For each missed interval it calls its own tick handler with the historical timestamp. TickGuard prevents double-work — all catch-up processing uses the same idempotency path as live ticks.
 
-|Subscriber|Condition checked via TemporalHelper|Action|
-|---|---|---|
-|`CommitmentSchedulerService`|`isDayBoundary`|Generate instances, finalize windows|
-|`CommitmentSchedulerService`|`isWeekBoundary`|Publish `WeekEndedEvent`, `WeekStartedEvent`|
-|`EncouragementService`|near `celebrationTime` preference|Evaluate day celebration Path B|
-|`WeeklySummaryService`|`isWeekBoundary`|Trigger AI quick summary (Phase 3)|
-
-**Short interval tick:**
-
-|Subscriber|Condition checked via TemporalHelper|Action|
-|---|---|---|
-|`CommitmentSchedulerService`|`isWakingHours`|Window warnings, grace expiry checks|
-|`PredictiveFrictionService`|`isWakingHours`|Risk signal evaluation|
-
----
-
-## App Open Catchup
-
-If ticks were missed while the app was closed:
-
-1. Read `lastTickTimestamp` from local storage
-2. For each missed interval slot, publish `LongIntervalTickEvent` with the historical timestamp
-3. Subscribers process catchup ticks through their normal `TickGuard` — idempotency prevents double work
-
-Short interval catchup is not replayed — only long interval matters for catchup. Missed short-interval checks (window warnings) are harmless to replay at the next real tick.
+Short interval catch-up is not replayed — only long interval matters. Missed short-interval checks are harmless to skip.
 
 ---
 
 ## Platform Accuracy
 
-WorkManager does not guarantee exact intervals. Long interval: expect 10–20 minutes in practice. Short interval: expect 1–3 minutes in practice. This is acceptable — `TemporalHelper` conditions are checked on each tick arrival regardless of exact timing.
+WorkManager does not guarantee exact intervals. Long interval: expect 10–20 minutes in practice. Short interval: expect 1–3 minutes. This is acceptable — `TemporalHelper` conditions are checked on each tick arrival regardless of exact timing.
 
 ---
 
 ## Rules
 
 - `TickService` is the abstraction — never reference `DefaultTickService` or `DualTickService` outside dependency injection
-- Tick events carry timestamp only — no pre-computed booleans
+- Tick events carry timestamp only — no pre-computed booleans, no feature knowledge
 - Subscribers use `TemporalHelper` for all time-based condition checks — never raw timestamp comparisons
 - Subscribers use `TickGuard` for idempotency — never custom implementations
 - The scheduler never calls any feature service — it only fires ticks
+- `getLastTickTimestamp()` returns null on first launch — callers must handle null
 - Adding a new time-based behavior requires zero changes to the scheduler

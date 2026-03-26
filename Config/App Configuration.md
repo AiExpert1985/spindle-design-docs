@@ -233,7 +233,7 @@ shortIntervalMinutes: 1
 ```
 freeInsightQuotaPerWeek: 3
   Weekly micro-insight quota for free tier users.
-  Checked and decremented by UserService.checkAndDecrementInsightQuota().
+  Checked and decremented by UserSettingsService.checkAndDecrementInsightQuota().
 
 deepReportMinIntervalDays: 7
   Minimum days before a deep report can be regenerated.

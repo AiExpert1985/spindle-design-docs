@@ -1,16 +1,16 @@
-**File Name**: component_onboarding **Feature**: User **Phase**: 2 **Created**: 15-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: component_onboarding **Feature**: UserSettings **Phase**: 2 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
 **Purpose:** guides a new user to their first successful log in under 10 seconds. No explanation, no tutorial — the user understands the app by doing it, not by reading about it.
 
-Expected placement: shown on first app launch when `UserProfile.hasCompletedOnboarding == false`. After completion, navigates to the Dashboard and never shows again.
+Expected placement: shown on first app launch when `UserSettingsProfile.hasCompletedOnboarding == false`. After completion, navigates to the Dashboard and never shows again.
 
 ---
 
 ## When It Shows
 
-On first launch, if `UserProfile.hasCompletedOnboarding == false`. In Phase 1 this flag is always null — onboarding never triggers. Zero behavior change in Phase 1.
+On first launch, if `UserSettingsProfile.hasCompletedOnboarding == false`. In Phase 1 this flag is always null — onboarding never triggers. Zero behavior change in Phase 1.
 
 ---
 
@@ -65,7 +65,7 @@ Want a few popular commitments to start with?
 
 Opt-in only — never automatic. Each tap creates one commitment with smart defaults. "Skip" dismisses.
 
-After this step → `UserService.completeOnboarding()` sets `hasCompletedOnboarding: true`.
+After this step → `UserSettingsService.completeOnboarding()` sets `hasCompletedOnboarding: true`.
 
 ---
 
@@ -86,5 +86,5 @@ The first `AppConfig.onboardingBypassCount` commitments skip all `UserCapability
 ## Dependencies
 
 - `CommitmentService.createCommitment()` — creates commitments from defaults
-- `UserService.completeOnboarding()` — sets completion flag
-- `UserProfile.hasCompletedOnboarding` — gate check on app start
+- `UserSettingsService.completeOnboarding()` — sets completion flag
+- `UserSettingsProfile.hasCompletedOnboarding` — gate check on app start

@@ -2,7 +2,7 @@
 
 ---
 
-**Purpose:** lets users configure app behavior and manage their account. All settings write to `UserProfile` through `UserService`. Accessed from bottom nav.
+**Purpose:** lets users configure app behavior and manage their account. Temporal and notification preferences write to `UserCoreProfile` through `UserSettingsService`. Encouragement and report preferences write to `UserSettingsProfile` through `UserSettingsService`. Accessed from bottom nav.
 
 ---
 
@@ -54,7 +54,7 @@ The most culturally sensitive settings. Available from first launch — `Tempora
 - **Day resets at** — time picker for `dayBoundaryHour`. Default midnight.
 - **Waking hours** — start and end time. Default 7am–10pm. Controls notification delivery window.
 
-Changes take effect immediately — `TemporalHelper` reads live from `UserProfile`.
+Changes take effect immediately — `TemporalHelper` reads live from `UserCoreProfile`.
 
 ---
 
@@ -109,6 +109,8 @@ Changes take effect immediately — `TemporalHelper` reads live from `UserProfil
 
 |Data|Source|
 |---|---|
-|All preferences|`UserService.getPreferences()` — one-time read on open|
-|Preference updates|`UserService.update*()` functions|
+|Temporal preferences|`UserCoreService.getTemporalPreferences()` — one-time read on open|
+|Notification and encouragement preferences|`UserSettingsService.getPreferences()` — one-time read on open|
+|Temporal preference updates|`UserSettingsService.update*()` functions — writes to UserCoreProfile|
+|Other preference updates|`UserSettingsService.update*()` functions|
 |Add button gate status|`UserCapabilityService.canAddCommitment` — not shown here, but referenced for context|

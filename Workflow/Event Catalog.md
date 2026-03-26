@@ -1,4 +1,4 @@
-**File Name**: event_catalog **Feature**: Infrastructure **Phase**: 1 **Created**: 21-Mar-2026 **Modified**: 21-Mar-2026
+**File Name**: event_catalog **Feature**: Infrastructure **Phase**: 1 **Created**: 21-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -8,7 +8,7 @@
 
 ## Tick Events
 
-Published by: TickService
+Published by: TickService (Infrastructure)
 
 ```
 LongIntervalTickEvent
@@ -16,18 +16,25 @@ LongIntervalTickEvent
 
 ShortIntervalTickEvent
   timestamp: DateTime
-
-DayEndedEvent
-  date: Date
-
-WeekEndedEvent
-  weekStart: DateTime
-
-WeekStartedEvent
-  weekStart: DateTime
 ```
 
-Raw timestamps only. Subscribers use TemporalHelper to interpret.
+Raw timestamps only. Subscribers use TemporalHelper to interpret. TickService never publishes boundary events — boundaries are culturally relative and require user preferences to detect. Feature services detect boundaries using TemporalHelper and publish the appropriate events themselves.
+
+---
+
+## Boundary Events
+
+Published by: CommitmentIdentityService (Commitment feature) — detects day and week boundaries on `LongIntervalTickEvent` using `TemporalHelper`.
+
+```
+WeekEndedEvent
+  weekStart: DateTime     // start of the week that just ended
+
+WeekStartedEvent
+  weekStart: DateTime     // start of the new week
+```
+
+These are the signals that trigger weekly calculations across the app — cups, rewards, garment weekly sealing, AI summaries. Week boundaries are user-relative (week start day varies by region) — `TemporalHelper` makes the determination, `CommitmentIdentityService` publishes when the condition is met.
 
 ---
 
@@ -42,15 +49,7 @@ CommitmentEvent
   snapshot: CommitmentSnapshot?   // null when type == deleted
 ```
 
-```
-CommitmentSnapshot
-  name: String
-  commitmentType: CommitmentType
-  recurrence: Recurrence
-  target: Target
-  activityWindow: ActivityWindow  // includes warningEnabled
-  commitmentState: CommitmentState
-```
+`CommitmentSnapshot` is defined in `service_commitment` — see that doc for fields.
 
 ---
 
@@ -72,9 +71,10 @@ InstanceUpdatedEvent
   instanceId: String
   definitionId: String
   windowStart: DateTime
+  snapshot: CommitmentSnapshot
 ```
 
-Structural change on instance — commitmentState, status, currentTarget, recurrence, activityWindow. Does not fire for `livePerformance` changes.
+Structural change on instance — commitmentState, status, currentTarget, recurrence, activityWindow. Does not fire for `livePerformance` changes. Carries `CommitmentSnapshot` so subscribers have all data they need without a follow-up service call. `CommitmentSnapshot` defined in `service_commitment`.
 
 ```
 InstancePermanentlyDeletedEvent
@@ -122,20 +122,43 @@ PerformanceUpdatedEvent
 
 ---
 
+## Notification Events
+
+Published by: NotificationService (Notification feature)
+
+```
+NotificationActionEvent
+  actionId: String
+  params: Map<String, String>
+```
+
+Published when the user taps an action button on a rich notification. `actionId` matches the `NotificationAction.id` set by the caller when constructing the payload. `params` carries the arbitrary key-value data the caller attached. Subscribers filter on `actionId` — the Notification feature never knows what any action means.
+
+---
+
 ## Reward Events
 
-Published by: RewardService
+Published by: RewardService, StreakService
 
 ```
 CupEarnedEvent
-  cupLevel: CupLevel
-  weekStart: DateTime
-  pointValue: double
+  cup: WeeklyCup
 
-StreakMilestoneReachedEvent
+RewardEarnedEvent
+  record: RewardRecord
+
+StreakChangedEvent
   definitionId: String
-  streakCount: int
+  currentStreak: int
+  bestStreak: int
+
+GlobalBestStreakEvent
+  newBest: int
+  definitionId: String
+  commitmentName: String
 ```
+
+`GlobalBestStreakEvent` published by `StreakService` when a new personal best streak is set across all commitments.
 
 ---
 

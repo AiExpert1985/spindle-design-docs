@@ -1,10 +1,10 @@
-**File Name**: userdefaultpreferences **Feature**: Config **Phase**: 1 **Created**: 18-Mar-2026 **Modified**: 21-Mar-2026
+**File Name**: userdefaultpreferences **Feature**: UserCore **Phase**: 1 **Created**: 18-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
-**Purpose:** starting values for all user-configurable preferences. Written to the user profile once at account creation. Users can change any of them through Settings. The single place that documents what "default" means for every user preference.
+**Purpose:** starting values for all user-configurable preferences. Written to `UserCoreProfile` and `UserSettingsProfile` once at account creation by `UserCoreService`. Users can change any of them through Settings. The single place that documents what "default" means for every user preference.
 
-Defaults are written once — never re-applied on update or reinstall. Adding a new preference requires: adding the field to the user profile model, adding its default here, and reading it in the relevant service.
+Defaults are written once — never re-applied on update or reinstall. Adding a new preference requires: adding the field to the relevant profile model, adding its default here, and reading it in the relevant service.
 
 ---
 

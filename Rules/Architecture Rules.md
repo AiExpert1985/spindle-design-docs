@@ -14,9 +14,12 @@ Four layers. Each layer communicates downward only — never upward, never sidew
 Presentation   →   Widgets, providers (passive observers only)
 Application    →   Services, event subscriptions (all business logic lives here)
 Domain         →   Models, events (plain objects, no dependencies)
-Infrastructure →   Cross-cutting utilities available to all features
+Infrastructure →   Truly feature-agnostic utilities: EventBus, TickService,
+                   TemporalHelper, TickGuard, ErrorService
 Data           →   Repositories, data sources (all external communication)
 ```
+
+Within the Application layer, features are ordered in a strict dependency chain. See `feature_dependency_chain` for the full ordering. The chain runs from `UserCore` (lowest feature) through `Commitment`, `Activity`, `Performance`, the mid-level features, and up to `UserSettings` (highest feature). `Notification` sits just above `UserCore`, below `Commitment` — any feature may call it downward.
 
 **Presentation** — UI only. Renders state. Forwards user intent to services. No calculations, no conditions representing business rules, no event bus access.
 
@@ -55,6 +58,14 @@ Three rules govern all communication across feature boundaries.
 Events are for reactions to state changes, not for queries. A simple read does not need an event — Rule A handles that.
 
 **Rule C — Dependencies flow one way.** Feature dependencies follow a fixed chain. No feature calls a feature above it in the chain. No circular dependencies. Ever. The chain is defined in `feature_dependency_chain`.
+
+This rule has a corollary that is equally non-negotiable:
+
+**Lower features never know upper features exist.** A lower feature publishes events and exposes service functions. It has no knowledge of who subscribes or who calls it. It never imports, calls, or subscribes to anything above it in the chain. Upper features watch lower features — never the reverse.
+
+This is not a preference — it is the structural guarantee that makes the entire system maintainable. If a lower feature must know about an upper feature to do its work, the responsibilities are in the wrong place. Move the logic upward, not the dependency downward.
+
+This principle corresponds to the Dependency Inversion Principle (SOLID) and is the core mechanism of Clean Architecture (Robert C. Martin). You do not need to know those names — the rule is self-evident from first principles: a foundation must not know what is built on top of it.
 
 ---
 
@@ -190,21 +201,29 @@ All tunable constants live in a central configuration object. All user preferenc
 
 Infrastructure utilities are available to all features. No business logic, no domain models.
 
-**Event bus** — cross-feature event communication and tick publishing.
+**Infrastructure is the foundation. It has no knowledge of any feature.**
 
-**Tick service** — two tiers: long interval (window closure, catch-up generation, day boundary) and short interval (warning checks, grace expiry). Publishes raw timestamps only.
+Infrastructure never imports, subscribes to, or calls any feature service, feature event, or feature model. It provides capabilities — clocks, event delivery, notification dispatch, logging — and stops there. Features use infrastructure; infrastructure never uses features.
 
-**Temporal helper** — interprets timestamps using user preferences and locale. No service hardcodes time assumptions.
+This is not a matter of preference. Infrastructure that knows about features is no longer infrastructure — it is a feature with extra responsibilities. The moment infrastructure subscribes to an `InstanceCreatedEvent`, it has taken on scheduling logic that belongs in a feature service. That logic must be moved up into the appropriate feature, which then calls infrastructure downward.
+
+**The test:** can this infrastructure utility be dropped into a completely different app with no changes? If not, it contains feature-specific logic that does not belong here.
+
+**Event bus** — delivers events between features. Knows nothing about what the events contain or who cares about them.
+
+**Tick service** — fires long-interval and short-interval ticks. Publishes raw timestamps only. No knowledge of what any subscriber will do with them.
+
+**Temporal helper** — answers semantic time questions using user preferences. No knowledge of commitments, instances, or any domain concept.
 
 **Tick guard** — shared idempotency for tick subscribers. Every tick subscriber uses this.
 
-**Notification service** — single delivery path for all user-facing notifications.
+**Notification service** — delivers a notification payload to the OS. Knows nothing about what triggered it or what feature it concerns.
 
-**Notification tracking** — tracks which notifications have been sent. Provides idempotency without storing notification state on domain models.
+**Notification tracking** — records that a notification was sent, keyed by an arbitrary ID. No knowledge of what the ID represents.
 
-**Grace service** — re-notification timer. Schedules one follow-up notification after a configurable delay.
+**Grace service** — schedules a follow-up callback after a configurable delay. No knowledge of what grace means in the domain.
 
-**Logging service** — all diagnostic and error logging.
+**Logging service** — records diagnostic output. No knowledge of what generated it.
 
 **Error handler** — centralised handling for unhandled exceptions. No feature implements its own top-level error handling.
 

@@ -1,8 +1,8 @@
-**File Name**: component_subscription_tiers **Feature**: User **Phase**: 3 **Created**: 15-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: component_subscription_tiers **Feature**: UserSettings **Phase**: 3 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
-**Purpose:** defines what each tier includes and controls the upgrade and cancellation flows. Tier checks are enforced by `UserService.getTier()` inside each gated feature — not centrally.
+**Purpose:** defines what each tier includes and controls the upgrade and cancellation flows. Tier checks are enforced by `UserCoreService.getTier()` inside each gated feature — not centrally.
 
 Expected placement: Settings screen Account section, and paywall moments within gated features.
 
@@ -31,7 +31,7 @@ The `UserCapabilityService` gates (consistency + rate limit) apply equally to al
 
 1. User hits a paywall moment — commitment ceiling, micro-insight quota, or weekly report gate
 2. Upgrade screen shown via RevenueCat
-3. Payment confirmed → `subscriptionTier` updated in `UserProfile`
+3. Payment confirmed → `subscriptionTier` updated in `UserCoreProfile`
 4. If upgrading from free → `MigrationService.migrateToFirestore()` triggered automatically
 
 **Best paywall moment:** free user hits micro-insight quota and taps "Understand this pattern" — highest intent, most motivated to upgrade.
@@ -58,6 +58,6 @@ All users treated as free tier before RevenueCat is integrated. Tier gates enfor
 
 ## Dependencies
 
-- `UserService.getTier()` — read by any gated feature
+- `UserCoreService.getTier()` — read by any gated feature
 - `MigrationService` — triggered on upgrade and cancellation
 - RevenueCat — Phase 3 only

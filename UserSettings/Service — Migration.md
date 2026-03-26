@@ -1,4 +1,4 @@
-**File Name**: service_migration **Feature**: User **Phase**: 3 **Created**: 15-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: service_migration **Feature**: UserSettings **Phase**: 3 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -15,7 +15,7 @@
 3. Verify all records written successfully
 4. Switch active repository to `FirestoreRepository`
 5. Clear Drift database
-6. Update `storageBackend` to `firebase` in `UserProfile` via `UserService`
+6. Update `storageBackend` to `firebase` in `UserCoreProfile` via `UserSettingsService`
 
 ### Cancellation (Pro/Premium → Free)
 
@@ -24,7 +24,7 @@
 3. Verify all records written successfully
 4. Switch active repository to `DriftRepository`
 5. Delete all Firebase user data — nothing remains in the cloud
-6. Update `storageBackend` to `local` in `UserProfile` via `UserService`
+6. Update `storageBackend` to `local` in `UserCoreProfile` via `UserSettingsService`
 
 ---
 
@@ -70,9 +70,9 @@ Returns current migration state — not started, in progress, complete, or faile
 ## Rules
 
 - Never exceeds 500 write operations per second to Firestore
-- `storageBackend` on `UserProfile` is only updated by this service — never written directly by the Settings screen
+- `storageBackend` on `UserCoreProfile` is only updated by this service — never written directly by the Settings screen
 - All Firebase user data deleted on cancellation — nothing remains in the cloud
-- Migration failures logged via `LoggingService`
+- Migration failures logged via `ErrorService`
 - Returns `Result<T>` — never throws
 
 ---
@@ -80,5 +80,5 @@ Returns current migration state — not started, in progress, complete, or faile
 ## Dependencies
 
 - All feature repositories — reads from source, writes to target
-- `UserService` — updates `storageBackend` after successful migration
-- `LoggingService` — failure logging
+- `UserSettingsService` — updates `storageBackend` after successful migration
+- `ErrorService` — failure logging

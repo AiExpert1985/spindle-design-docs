@@ -30,13 +30,13 @@ Takes the commitment definition at creation time. Returns a `GarmentType` enum v
 
 ## Garment Types
 
-| Type | Visual | Assigned to |
+|Type|Visual|Assigned to|
 |---|---|---|
-| `thread_bracelet` | Simplest — circular wrist band | Binary daily (no unit) |
-| `sock` | Simple silhouette | Measurable daily, small target |
-| `glove` | Moderate silhouette | Measurable daily, larger target |
-| `scarf` | Long rectangular wrap | Weekly commitment |
-| `sweater` | Complex silhouette | Long-running or high-target commitment |
+|`thread_bracelet`|Simplest — circular wrist band|Binary daily (no unit)|
+|`sock`|Simple silhouette|Measurable daily, small target|
+|`glove`|Moderate silhouette|Measurable daily, larger target|
+|`scarf`|Long rectangular wrap|Weekly commitment|
+|`sweater`|Complex silhouette|Long-running or high-target commitment|
 
 For Avoid commitments: same types apply, starting state reversed — garment begins complete and unravels.
 
@@ -90,5 +90,5 @@ Available to Pro and Premium users only. Free tier always uses rule-based resolv
 
 - `CommitmentDefinition` — input only, read at creation time
 - AI API — AI implementation only, Pro/Premium
-- `UserService.getTier()` — determines which implementation is active
+- `UserCoreService.getTier()` — determines which implementation is active
 - `AppConfig` — threshold constants

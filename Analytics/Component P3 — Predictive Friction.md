@@ -42,11 +42,11 @@ You haven't logged — and Fridays are your toughest day."
 ## Rules
 
 - At least 2 risk signals must align before an alert fires
-- Maximum 1 alert per commitment per day — idempotency tracked via `NotificationTrackingService`
+- Maximum 1 alert per commitment per day — idempotency via stable notification ID incorporating `definitionId` + date, enforced by `NotificationService`
 - Never fires if the commitment has already been breached today
 - Never fires for frozen or completed commitments
 - Exits silently for commitments with fewer than 2–3 weeks of history
-- Respects global notification settings from `UserService`
+- Respects global notification settings from `UserCoreService`
 
 ---
 
@@ -55,6 +55,5 @@ You haven't logged — and Fridays are your toughest day."
 - EventBus — subscribes to `ShortIntervalTickEvent`
 - `CommitmentIdentityService.getInstances(from, to, definitionId)` — current instance state
 - `AnalyticsService` — historical failure patterns
-- `NotificationService` — sends the alert notification
-- `NotificationTrackingService` — daily idempotency per commitment
-- `UserService` — notification preference check
+- `NotificationService` — schedules the alert notification
+- `UserCoreService.getProfile()` — notification preference check

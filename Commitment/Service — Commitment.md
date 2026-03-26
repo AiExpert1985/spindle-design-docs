@@ -105,7 +105,7 @@ Valid from `deleted` only. Removes definition and full `StateTransitionLog`. Pub
 |deleted|active|restoreCommitment|
 |deleted|permanent|permanentDeleteCommitment|
 
-Invalid transitions return an error — never silently ignored.
+Delete is available from any non-deleted state — active, frozen, or completed. A user must always be able to remove a commitment regardless of its current lifecycle stage. Invalid transitions return an error — never silently ignored.
 
 ---
 
@@ -136,6 +136,12 @@ Invalid transitions return an error — never silently ignored.
 - Never calls CommitmentIdentityService — instances react through events
 - `permanentDeleteCommitment` publishes `CommitmentEvent(type: deleted)` only — calls nothing else
 - `commitmentType` changes rejected on update — immutable after creation
+
+**Why CommitmentService never closes instances directly:**
+
+When a commitment is frozen, completed, or soft-deleted, the pending instance is not closed by CommitmentService. This is intentional. An instance's window is a fact about time — it closes when its `regenerationWindow.windowEnd` arrives, not when the commitment changes state. CommitmentService owns definitions. CommitmentIdentityService owns instances. CommitmentService may not call CommitmentIdentityService directly — CommitmentIdentityService is built above CommitmentService in the intra-feature dependency order, and lower services never call upward.
+
+The correct flow: CommitmentService publishes `CommitmentEvent(type: updated, snapshot.commitmentState: frozen)`. CommitmentIdentityService subscribes, clears the pending instance (meaning no successor will be generated), and lets the existing pending instance close naturally when its window ends. The instance remains open and loggable until its `regenerationWindow.windowEnd` — the commitment state change does not retroactively invalidate the current window.
 
 ---
 

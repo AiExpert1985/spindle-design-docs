@@ -72,9 +72,11 @@ Deletes all instances including closed history. Publishes `InstancePermanentlyDe
 
 **Close and replicate:** for each pending instance whose `regenerationWindow.windowEnd <= now`, calls `_closeInstance()` then `_generateNextInstance()` sequentially. Publishes `InstanceUpdatedEvent` after both steps complete.
 
-**Catch-up:** for each active commitment with no pending instance (device was inactive at close time), replicates from the last closed instance. If no closed instance exists (brand new commitment that never had one), reads definition once and generates from scratch.
+Closing is unconditional — it happens regardless of `commitmentState`. An instance whose window has ended is a historical fact; the commitment's current state has no bearing on whether that window closed. What the commitment state controls is replication only: if `commitmentState == active`, a successor instance is generated. If not active (frozen, completed, deleted), the instance closes and no successor is created.
 
-**Warning evaluation:** for each pending instance where 3/4 of `activityWindow` has elapsed and `activityWindow.warningEnabled` is true, publishes `InstanceUpdatedEvent` with a warning signal if not already sent.
+**Catch-up:** for each commitment with `commitmentState == active` and no pending instance (device was inactive at close time), replicates from the last closed instance. Catch-up is restricted to active commitments — frozen, completed, and deleted commitments do not need a new pending instance. If no closed instance exists (brand new commitment that never had one), reads definition once and generates from scratch.
+
+**Week boundary:** if `TemporalHelper.isWeekBoundary(tick.timestamp)` and TickGuard confirms not already run for this week boundary, publishes `WeekEndedEvent(previousWeekStart)` and `WeekStartedEvent(currentWeekStart)`. Week boundaries are user-relative — `TemporalHelper` uses `UserCoreService` to determine the correct week start day. This is published here rather than in Infrastructure because detecting the boundary requires user preferences, which infrastructure cannot access.
 
 All tick operations are idempotent. TickGuard prevents double-processing.
 
@@ -96,9 +98,10 @@ InstanceUpdatedEvent
   instanceId: String
   definitionId: String
   windowStart: DateTime
+  snapshot: CommitmentSnapshot
 ```
 
-Structural change — commitmentState, status (including pending→closed), currentTarget, recurrence, activityWindow, or regenerationWindow. Does not fire for `livePerformance` changes. Subscribers fetch the instance via `getInstances()` to read what changed.
+Structural change — commitmentState, status (including pending→closed), currentTarget, recurrence, activityWindow, or regenerationWindow. Does not fire for `livePerformance` changes. Carries a `CommitmentSnapshot` so subscribers have everything they need without a follow-up service call. `CommitmentSnapshot` is defined in `service_commitment` — see that doc.
 
 ```
 InstancePermanentlyDeletedEvent
@@ -113,7 +116,7 @@ All instances for this commitment have been deleted. Subscribers clean up their 
 
 ### `_generateInstance(definitionId, snapshot, windowStart, windowEnd)`
 
-Creates one instance. `definitionId` is passed explicitly — it is the identity of the commitment, not carried in the snapshot. `RegenerationWindow` constructed from `windowStart` and `windowEnd`. `ActivityWindow` (including `warningEnabled`) copied from `snapshot.activityWindow`. Status: pending. `livePerformance`: 0.0. Idempotent — exits silently if an instance already exists for `definitionId + windowStart`. Publishes `InstanceCreatedEvent`.
+Creates one instance. `definitionId` is passed explicitly — it is the identity of the commitment, not carried in the snapshot. `RegenerationWindow` constructed from `windowStart` and `windowEnd`. `ActivityWindow` (including `warningEnabled`) copied from `snapshot.activityWindow`. Status: pending. `livePerformance`: `0.0` — valid ground state before any activity. PerformanceService receives `InstanceCreatedEvent` and recalculates immediately. Idempotent — exits silently if an instance already exists for `definitionId + windowStart`. Publishes `InstanceCreatedEvent`.
 
 ### `_clearPendingInstance(definitionId)`
 
@@ -185,10 +188,8 @@ All instances for a given week, optionally filtered by commitment.
 
 ## Dependencies
 
-- EventBus — subscribes to CommitmentEvent (internal), LongIntervalTickEvent; publishes InstanceCreatedEvent, InstanceUpdatedEvent, InstancePermanentlyDeletedEvent
+- EventBus — subscribes to `CommitmentEvent` (internal), `LongIntervalTickEvent`; publishes `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`, `WeekEndedEvent`, `WeekStartedEvent`
 - CommitmentInstanceRepository — instance storage
 - CommitmentService — reads definition for catch-up generation when no prior instance exists
-- NotificationTrackingService — warning notification idempotency
-- TemporalHelper — waking hours check, day boundary detection
+- TemporalHelper — day and week boundary detection
 - TickGuard — prevents double-processing on tick
-- AppConfig — minimum warning lead time

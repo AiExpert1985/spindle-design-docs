@@ -11,7 +11,7 @@
 PerformanceService recalculates `livePerformance` in exactly two situations:
 
 1. **`InstanceCreatedEvent`** — a new or recreated instance exists. Initialise `livePerformance` from any logs already recorded for that commitment on that date.
-2. **`ActivityRecordedEvent`** — the user logged activity. Recalculate for the matching instance.
+2. **`ActivityEvent`** — the user logged activity. Recalculate for the matching instance.
 
 Everything that causes instance recreation — target changes, recurrence changes, state changes — is handled by CommitmentIdentityService, which publishes `InstanceCreatedEvent` after each recreation. PerformanceService never watches CommitmentEvent or definition changes directly.
 
@@ -152,7 +152,7 @@ Used by: `StreakService` (to update streak counts), `GarmentDeltaCalculator` (re
 
 ## Rules
 
-- Two recalculation triggers only: `InstanceCreatedEvent` and `ActivityRecordedEvent`
+- Two recalculation triggers only: `InstanceCreatedEvent` and `ActivityEvent`
 - Writes `livePerformance` via `CommitmentIdentityService.updateLivePerformance()` — a valid downward call
 - Never subscribes to CommitmentEvent or any event from a feature above Performance
 - Recalculates only the affected instance per event — no bulk recalculation
@@ -163,7 +163,7 @@ Used by: `StreakService` (to update streak counts), `GarmentDeltaCalculator` (re
 
 ## Dependencies
 
-- EventBus — subscribes to InstanceCreatedEvent, InstanceUpdatedEvent, ActivityRecordedEvent; publishes PerformanceUpdatedEvent
+- EventBus — subscribes to `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `ActivityEvent`; publishes `PerformanceUpdatedEvent`
 - CommitmentIdentityService — updateLivePerformance(), getInstanceForCommitmentOnDate(), getInstances()
 - ActivityService — getTotalLoggedForCommitmentOnDate()
 - AppConfig — successThreshold (inactive in Phase 1)

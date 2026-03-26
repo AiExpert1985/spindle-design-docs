@@ -1,19 +1,16 @@
-**File Name**: temporalhelper **Created**: 18-Mar-2026 **Modified**: - **Phase**: 1 **Feature**: Infrastructure
+**File Name**: temporalhelper **Created**: 18-Mar-2026 **Modified**: 26-Mar-2026 **Phase**: 1 **Feature**: Infrastructure
 
 **Purpose:** answers semantic questions about time using the user's cultural and personal preferences. Any service that needs to check whether a timestamp represents a meaningful boundary — day start, week start, rest day, waking hours — calls this helper. The scheduler fires ticks with raw timestamps. This helper gives those timestamps meaning.
 
 ---
 
-## Why This Exists
+## Why This Is Separate From the Background Scheduler
 
-Time boundaries are culturally relative. Hardcoding "midnight is day start" and "Sunday is week start" breaks for users in different regions and with different lifestyles.
+The scheduler's only job is to fire at intervals and publish a raw timestamp. It has no knowledge of what that timestamp means for any particular user.
 
-- Week start: Monday in Europe, Sunday in North America, Saturday in parts of the Middle East
-- Rest days: Saturday + Sunday in the West, Friday + Saturday in the Middle East
-- Day boundary: midnight for most users, but a different hour for shift workers or night owls
-- Waking hours: varies by person and lifestyle
+`TemporalHelper` is where that meaning lives — and that meaning is culturally relative. Week start, rest days, and day boundaries all vary by region and personal preference. The scheduler cannot know these things without depending on user preferences, which would make it feature-aware and break the infrastructure rule.
 
-`TemporalHelper` reads the user's configured preferences and answers time questions correctly for that user. No service ever hardcodes time assumptions — they always ask the helper.
+Keeping them separate gives each component exactly one responsibility: the scheduler produces ticks, `TemporalHelper` interprets them. Any subscriber that needs to act on a time boundary calls `TemporalHelper` with the tick's timestamp — the scheduler is never involved in that decision.
 
 ---
 
@@ -63,13 +60,13 @@ abstract class TemporalHelper {
 
 ## Implementation
 
-`DefaultTemporalHelper` reads preferences from `UserService.getPreferences()` on each call. Preferences are cached in memory and refreshed when `UserProfile` changes — no repeated database reads on every tick.
+`DefaultTemporalHelper` reads preferences from `UserCoreService.getTemporalPreferences()` on each call. Preferences are cached in memory and refreshed when `UserCoreProfile` changes — no repeated database reads on every tick.
 
 ---
 
 ## User Preferences Used
 
-All read from `UserProfile` via `UserService`:
+All read from `UserCoreProfile` via `UserCoreService`:
 
 |Preference|Default|Notes|
 |---|---|---|
@@ -84,7 +81,7 @@ All read from `UserProfile` via `UserService`:
 ## Usage Pattern
 
 ```dart
-// CommitmentSchedulerService — correct usage
+// CommitmentIdentityService — correct usage
 eventBus.on<LongIntervalTickEvent>().listen((tick) {
   if (_temporal.isDayBoundary(tick.timestamp) &&
       _guard.shouldRun('day_boundary', _temporal.currentDayStart(tick.timestamp))) {
@@ -121,7 +118,7 @@ eventBus.on<LongIntervalTickEvent>().listen((tick) {
 
 - Every service that needs time-based condition checks uses `TemporalHelper` — never hardcoded time comparisons
 - `TemporalHelper` is injected like any other infrastructure dependency
-- Preferences are read via `UserService` — `TemporalHelper` never reads `UserRepository` directly
+- Preferences are read via `UserCoreService` — `TemporalHelper` never reads `UserCoreRepository` directly
 - Default values must be sensible for the majority of users — Monday week start, midnight day boundary, Saturday + Sunday rest days
 - Services never store `TemporalHelper` results — always call fresh on each tick
 
@@ -129,4 +126,4 @@ eventBus.on<LongIntervalTickEvent>().listen((tick) {
 
 ## Dependencies
 
-- `UserService` — reads temporal preferences from UserProfile
+- `UserCoreService` — reads temporal preferences from `UserCoreProfile`

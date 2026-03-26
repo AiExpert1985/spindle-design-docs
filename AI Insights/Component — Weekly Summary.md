@@ -12,7 +12,7 @@ Analyzes the current week only. Low cost, passive delivery.
 
 **What it covers:** overall week score, per-commitment trend, one observation, one small suggestion.
 
-**Trigger:** `WeekEndedEvent` published by the scheduler. `WeeklySummaryService` subscribes, generates report, publishes notification via `NotificationService`.
+**Trigger:** `WeekEndedEvent` published by `CommitmentIdentityService`. `WeeklySummaryService` subscribes, generates report, calls `NotificationService.send()` directly.
 
 ---
 
@@ -45,7 +45,7 @@ This report will be replaced when you generate a new one.
 - `AnalyticsService.computeWeeklyFacts(weekStart, includeNotes: false)`
 - `AIInsightService.generateQuickSummary(weekFacts)`
 - `AIInsightRepository.saveInsight(record)`
-- Publishes event → `NotificationService` sends thin notification
+- Calls `NotificationService.send()` directly with a thin notification
 
 **Deep report (manual):**
 
@@ -62,6 +62,6 @@ This report will be replaced when you generate a new one.
 - `AnalyticsService` — facts and notes payload
 - `AIInsightService` — AI reasoning
 - `AIInsightRepository` — last report storage
-- `EventBus` — subscribes to `WeekEndedEvent`
-- `NotificationService` — subscribes to summary-ready event
-- `UserService.canAccessFeature()` — tier gate
+- `EventBus` — subscribes to `WeekEndedEvent` (published by CommitmentIdentityService)
+- `NotificationService` — sends summary-ready notification directly
+- `UserCoreService.getTier()` — tier gate
