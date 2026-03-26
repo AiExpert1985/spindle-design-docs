@@ -1,4 +1,4 @@
-**File Name**: temporalhelper **Created**: 18-Mar-2026 **Modified**: 26-Mar-2026 **Phase**: 1 **Feature**: Infrastructure
+**File Name**: temporalhelper **Created**: 18-Mar-2026 **Modified**: 26-Mar-2026 **Phase**: 1 **Feature**: Core
 
 **Purpose:** answers semantic questions about time using the user's cultural and personal preferences. Any service that needs to check whether a timestamp represents a meaningful boundary — day start, week start, rest day, waking hours — calls this helper. The scheduler fires ticks with raw timestamps. This helper gives those timestamps meaning.
 

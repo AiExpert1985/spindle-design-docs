@@ -12,14 +12,14 @@ Four layers. Each layer communicates downward only — never upward, never sidew
 
 ```
 Presentation   →   Widgets, providers (passive observers only)
-Application    →   Services, event subscriptions (all business logic lives here)
+Application    →   Services, event streams (all business logic lives here)
 Domain         →   Models, events (plain objects, no dependencies)
 Data           →   Repositories, data sources (all external communication)
 ```
 
-**Presentation** — UI only. Renders state. Forwards user intent to services. No calculations, no conditions representing business rules, no event bus access.
+**Presentation** — UI only. Renders state. Forwards user intent to services. No calculations, no conditions representing business rules, no direct event subscriptions.
 
-**Application** — all rules and logic live here. Services publish and subscribe to events. Services write state to providers for the presentation layer to observe. Features live in this layer, stacked in a dependency order.
+**Application** — all rules and logic live here. Services publish and subscribe to events. Services write state to providers for the presentation layer to observe. Features live in this layer, stacked in a dependency order — see §3.
 
 **Domain** — plain model and event objects. No logic, no dependencies on other layers.
 
@@ -46,16 +46,16 @@ The application is organized into features. Each feature has exactly one respons
 Within the Application layer, features are stacked in a dependency order. A feature can only depend on features below it. Features at the same level cannot depend on each other. The full ordering is in `feature_dependency_chain`.
 
 ```
-  [Higher features]           ← depend on everything below
+  [Higher features]      ← depend on everything below
         ↑
-  [Mid-level features]        ← depend on lower features
+  [Mid-level features]   ← depend on lower features
         ↑
-  [Lower features]            ← depend only on infrastructure features
-        ↑
-  [Infrastructure features]   ← domain-agnostic, depend on nothing above them
+  [Lower features]       ← depend on nothing above them
 ```
 
-Infrastructure features sit at the base of the stack. They are features like any other — they have a service interface, they can be called downward — but they carry one additional rule: they must be completely domain-agnostic. An infrastructure feature knows nothing about commitments, instances, or any other domain concept. It provides a raw capability (time signals, event delivery, logging) and stops there..
+Some features sit at the very base of the stack — used by many features above them, but depending on nothing themselves. They have no domain knowledge: no commitments, no instances, no users. They provide a raw capability and stop there.
+
+**The test for a base feature:** can it be dropped into a completely different app with zero changes? If not, it contains domain-specific logic that does not belong at the base — move that logic upward into the appropriate feature, which then calls the base feature downward.
 
 Think of this as a building. The foundation does not know what floors are built on top of it. A floor can use anything below it — it cannot use anything above it or beside it.
 
@@ -71,7 +71,7 @@ Three rules govern all communication across feature boundaries.
 
 **Rule A — Read downward through services.** When a feature needs data owned by a lower feature, it calls that feature's service. Never access another feature's repository or model directly.
 
-**Rule B — Notify upward through events.** When a feature's state changes, it publishes an event. Any feature above it that needs to react subscribes to that event. The publisher never calls the subscriber. The subscriber never polls the publisher.
+**Rule B — Notify upward through events.** When a feature's state changes, it publishes an event on its own stream. Any feature above it that needs to react subscribes to that stream. The publisher never calls the subscriber. The subscriber never polls the publisher.
 
 This is the _Observer Pattern_. It is the only mechanism by which lower features communicate upward — they publish blindly, without knowing who (if anyone) is listening.
 
@@ -85,23 +85,23 @@ This is the _Observer Pattern_. It is the only mechanism by which lower features
 
 The problem with direct calls: if a lower feature needs to notify several higher features, it must import and call each of them. This creates upward dependencies — the foundation knows about the floors — which breaks the stack and creates circular dependencies.
 
-Events solve this cleanly. The lower feature publishes one event and stops. It never knows who reacts. Higher features subscribe independently, with no knowledge of each other.
+Events solve this cleanly. The lower feature publishes to its own stream and stops. It never knows who reacts. Higher features subscribe independently, with no knowledge of each other.
 
 **This design enables future expansion.** Adding a new feature that reacts to an existing event requires zero changes to anything already written. The lower feature keeps publishing. The new feature subscribes. Nothing else changes.
 
 **Benefits:**
 
-_No cycles._ A lower feature cannot accidentally call a higher feature — it can only publish.
+_No cycles._ A lower feature cannot accidentally call a higher feature — it can only publish to its own stream.
 
-_Incremental addition._ New features subscribe to existing events without touching existing code.
+_Incremental addition._ New features subscribe to existing streams without touching existing code.
 
 _Failure isolation._ A subscriber that throws does not affect the publisher or other subscribers.
 
-_Isolated testing._ Publish a test event to verify a subscriber. Assert an event was published to verify a publisher.
+_Isolated testing._ Emit a test event to verify a subscriber. Assert an event was emitted to verify a publisher.
 
 **Drawbacks and mitigations:**
 
-_Debugging is harder._ No linear call stack. Mitigation: every subscriber logs its activation. The event catalog in `event_catalog` lists every event and subscriber — keep it current.
+_Debugging is harder._ No linear call stack. Mitigation: every subscriber logs its activation. The event catalog in `event_catalog` lists every stream and its subscribers — keep it current.
 
 _Execution order is not guaranteed._ If Subscriber B needs the result of Subscriber A's reaction, design A to publish a second event when done — B subscribes to that.
 
@@ -111,19 +111,27 @@ _Execution order is not guaranteed._ If Subscriber B needs the result of Subscri
 - Subscribers are fully independent — they never know who published
 - Events carry only the values that changed — not full model snapshots, not unrelated data
 - A feature's internal events are not part of its public interface — only events consumed by features above it are public
-- The event bus is never used from the presentation layer — UI observes providers
+- Events are never consumed from the presentation layer — UI observes providers
 - Every subscription is cancelled when the service is disposed
 - Use direct service calls for write-back operations, not events
 
+**Each feature owns its own event streams.** There is no centralized event bus. A feature exposes its events as part of its service interface. Upper features subscribe by importing the lower feature's service — which the stack already permits. This is intentional: a centralized bus would allow any feature to subscribe to any other feature's events regardless of stack position, making the one-way rule enforceable only by discipline. With per-feature streams, the rule is enforced structurally — a lower feature cannot import an upper feature, so it cannot subscribe to its events even if it wanted to.
+
 ---
 
-## 6. Tick Service
+## 6. Shared Low-Level Services
 
-The tick service fires periodic signals — a short-interval tick and a long-interval tick. Features that need time-based behavior subscribe to these ticks.
+Some capabilities are needed by many features — time signals, notifications, error handling, logging. Rather than letting each feature implement its own version, each is built as a single feature with an abstract interface. Every feature that needs it calls the interface downward. The implementation behind the interface is swappable without touching any caller.
 
-**The tick service knows nothing about features.** It fires a timestamp and stops. What any subscriber does with that timestamp is none of its concern.
+This is the _Separated Interface_ pattern: define the contract in one place, implement it elsewhere, callers depend only on the contract. It keeps features decoupled from platform details and makes future changes — a new notification backend, a remote logging service — a matter of swapping one implementation.
 
-**Idempotency is the subscriber's responsibility.** Because ticks fire on a schedule that does not align perfectly with real-world events (midnight, week boundaries), every tick subscriber must check whether it has already handled the current interval before doing any work. Use the shared tick guard utility for this.
+**Heartbeat** fires periodic time signals — a long-interval tick and a short-interval tick — carrying only a raw timestamp. Features that need time-based behavior subscribe to these streams. Heartbeat has no knowledge of what any subscriber will do with the timestamp. It is separated from time interpretation (`TemporalHelper`) by design: what a timestamp means culturally and contextually depends on user preferences, not on the pulse itself. See `heartbeat`.
+
+**Notifications** accept a payload from any feature and handle all delivery details. Features never call the OS notification API directly. This means the delivery mechanism — local notifications, push, in-app banners — can change without touching any feature. See `notification`.
+
+**Error Handling** provides `Result<T>` as the standard return type for any function that can fail, and `AppError` as the structured failure type. Every service function that can fail returns `Result<T>` — no raw exceptions cross feature boundaries. A global catch in `main.dart` handles anything that escapes. See `error_handling`.
+
+**Logger** is the single entry point for all diagnostic output — debug, info, warning, error. Nothing writes to the console or any storage directly. The Phase 1 implementation prints to console. Future implementations add persistent or remote output by swapping the implementation, with zero changes to any calling feature. See `logger`.
 
 ---
 
@@ -141,7 +149,7 @@ The presentation layer observes state — it never calculates, decides, or holds
 - Checks conditions to decide what to show — that belongs in a provider or service
 - Calculates any derived value — that belongs in a service
 - Contains logic representing a business rule
-- Listens to events directly — it watches providers
+- Subscribes to event streams directly — it watches providers
 - Calls multiple services to assemble data — a provider does that
 
 **Providers are the assembly layer.** A provider may call multiple services to assemble the state a widget needs. No business logic — only data assembly. No widget writes to a provider directly.
@@ -187,35 +195,7 @@ When each feature owns its own data — linked by the object's ID — changes ar
 
 ---
 
-## 11. Infrastructure Features
-
-Infrastructure features are ordinary features that sit at the absolute base of the dependency stack. Every other feature may call them downward. They call nothing above them — ever.
-
-What makes them infrastructure is one rule: **they must be completely domain-agnostic.** An infrastructure feature provides a raw capability — time signals, event delivery, notification dispatch, logging — with no knowledge of commitments, instances, users, or any other domain concept.
-
-**The test:** can this feature be dropped into a completely different app with zero changes? If not, it contains domain-specific logic that does not belong here — move that logic up into the appropriate domain feature, which then calls the infrastructure feature downward.
-
-For the specific infrastructure features available and their contracts, see `infrastructure_*` docs.
-
----
-
-## 12. Notifications
-
-The notification system is designed as an abstraction, not a direct OS call. A feature that needs to notify the user constructs a `NotificationPayload` and passes it to the notification service. The notification service handles all delivery details.
-
-This separation means: features never know what notification mechanism is in use. The underlying implementation — local notifications, push notifications, in-app banners — can change without touching any feature.
-
----
-
-## 13. Error Handling
-
-All unhandled errors are routed through a single centralized error handler. No feature implements its own top-level error handling.
-
-This separation means: error reporting, formatting, and recovery are defined in one place. Features report errors — they do not decide what to do with them.
-
----
-
-## 14. Type Safety
+## 11. Type Safety
 
 Code should make invalid states unrepresentable.
 
@@ -235,7 +215,7 @@ Example — `Recurrence`: `Daily` and `Weekly` carry no extra data. `SpecificWee
 
 ---
 
-## 15. Configuration
+## 12. Configuration
 
 All tunable constants live in a central configuration object. All user preference defaults live in a separate preferences defaults object.
 
@@ -245,18 +225,18 @@ All tunable constants live in a central configuration object. All user preferenc
 
 ---
 
-## 16. Testability
+## 13. Testability
 
-- Every service testable by injecting a mock repository and a mock event bus
-- Publishing a test event verifies subscriber behavior without wiring up the publisher
-- Subscribing to a mock event bus verifies publisher behavior without wiring up subscribers
+- Every service testable by injecting a mock repository and mock event streams
+- Emitting a test event verifies subscriber behavior without wiring up the publisher
+- Asserting an event was emitted verifies publisher behavior without wiring up subscribers
 - Widgets tested by providing mock providers — never by mocking services directly
 - No test should require a running device, real database, or network connection
 - Test priority: services first, repositories second, event handlers third, widgets last
 
 ---
 
-## 17. Modularity Checklist
+## 14. Modularity Checklist
 
 Before building any new feature:
 
@@ -267,17 +247,3 @@ Before building any new feature:
 - Does it react to other features only through event subscriptions?
 - Does it publish events when its state changes?
 - Can it be removed without changing any other feature's code?
-
----
-
-## 18. Core Feature
-
-`core` is for screens and components that assemble data from multiple features and cannot be attributed to any single one. Presentation only.
-
-**Belongs in `core`:** screens that draw from three or more features to give a unified view. The app-level navigation shell.
-
-**Does not belong in `core`:** infrastructure utilities, configuration, or anything that can be cleanly attributed to one feature.
-
-**Hard rules:** no services, no repositories, no models. No business logic. Reads other features only through their public service interfaces.
-
-**The test:** can you name one feature that owns this screen? If yes — put it there. If no — it belongs in `core`.
