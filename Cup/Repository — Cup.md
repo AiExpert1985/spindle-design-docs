@@ -1,4 +1,4 @@
-**File Name**: repository_cup **Feature**: Achievements **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: repository_cup **Feature**: Cups **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
 
 ---
 

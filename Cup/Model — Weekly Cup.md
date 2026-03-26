@@ -1,8 +1,8 @@
-**File Name**: model_weekly_cup **Feature**: Achievements **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: model_weekly_cup **Feature**: Cups **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
 
 ---
 
-**Purpose:** a permanent record of one weekly cup earned. Written once when the weekly score meets a threshold — never updated.
+**Purpose:** a permanent record of one weekly cup earned. Implements `Achievable` — `AchievementService` calls `toAchievementRecord()` when a `CupEarnedEvent` arrives.
 
 ---
 
@@ -50,9 +50,28 @@ Below 0.60 — no cup, no record.
 
 ---
 
+## Achievable Implementation
+
+```dart
+@override
+AchievementRecord toAchievementRecord() {
+  return AchievementRecord(
+    type: AchievementType.cup,
+    subtype: cupLevel.name,       // 'bronze' | 'silver' | 'gold' | 'diamond'
+    sourceId: id,
+    definitionId: null,           // cups are cross-commitment
+    earnedAt: createdAt,
+  );
+}
+```
+
+Pure function — no side effects, no service calls.
+
+---
+
 ## Rules
 
 - One record per week maximum — `CupService` checks idempotency before writing
 - Append-only — never edited after creation
 - Written only by `CupService`
-- Deleted when `InstancePermanentlyDeletedEvent` fires — cups are permanent user records, only deleted on full account deletion
+- `toAchievementRecord()` called only by `AchievementService`

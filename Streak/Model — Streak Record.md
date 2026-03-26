@@ -1,4 +1,4 @@
-**File Name**: model_streak_record **Feature**: Achievements (internal) **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: model_streak_record **Feature**: Streak **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
 
 ---
 

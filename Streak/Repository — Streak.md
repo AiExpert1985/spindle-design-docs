@@ -1,4 +1,4 @@
-**File Name**: repository_streak **Feature**: Achievements (internal) **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: repository_streak **Feature**: Streak **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
 
 ---
 

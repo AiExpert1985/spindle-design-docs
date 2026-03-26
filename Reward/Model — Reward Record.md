@@ -1,8 +1,8 @@
-**File Name**: model_reward_record **Feature**: Achievements **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: model_reward_record **Feature**: Rewards **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
 
 ---
 
-**Purpose:** a permanent record of one occasional reward earned. Written when the user meets the periodic performance condition. Never updated.
+**Purpose:** a permanent record of one occasional reward earned. Implements `Achievable` so `AchievementService` can build a unified record from it when `RewardEarnedEvent` arrives.
 
 ---
 
@@ -29,9 +29,28 @@ RewardRecord
 
 ---
 
+## Achievable Implementation
+
+```dart
+@override
+AchievementRecord toAchievementRecord() {
+  return AchievementRecord(
+    type: AchievementType.reward,
+    subtype: 'periodic',
+    sourceId: id,
+    definitionId: null,     // rewards are cross-commitment
+    earnedAt: earnedAt,
+  );
+}
+```
+
+Pure function — no side effects, no service calls.
+
+---
+
 ## Rules
 
 - Append-only — never edited after creation
 - Written only by `RewardService`
-- One reward per qualifying period — `RewardService` checks idempotency before writing
-- Not tied to a specific commitment — cross-commitment, like cups
+- One reward per qualifying period — `RewardService` checks idempotency
+- `toAchievementRecord()` called only by `AchievementService`
