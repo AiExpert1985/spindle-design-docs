@@ -1,4 +1,4 @@
-**File Name**: model_weekly_cup **Feature**: Cups **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: model_weekly_cup **Feature**: Cups **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -23,30 +23,34 @@ WeeklyCup
   cupLevel: CupLevel
   weeklyScore: double     // the raw overall week score that earned this cup
   createdAt: DateTime
+  updatedAt: DateTime
 ```
 
 ```
 enum CupLevel { bronze, silver, gold, diamond }
 ```
 
-- **weekStart** — the unique identifier for this week. Combined with user scope, guarantees one cup per week maximum.
+- **id** — client-generated UUID. The Firestore document ID. Immutable.
+- **weekStart** — identifies which week this cup belongs to. Used for queries, display ("week of March 3rd"), and `ScoringService` bonus trigger evaluation. Combined with user scope, guarantees one cup per week maximum.
 - **cupLevel** — the tier earned. Determined by comparing `weeklyScore` against `AppConfig` thresholds.
-- **weeklyScore** — the raw score stored for auditability and display. Used by `ScoringService` for bonus trigger evaluation (e.g. diamond cup after a cupless week).
+- **weeklyScore** — the raw percentage score stored for auditability. Used by `ScoringService` for bonus trigger evaluation (e.g. diamond cup after a cupless week).
+- **createdAt** — immutable.
+- **updatedAt** — initialized to `createdAt`. Cups are append-only and never edited — `updatedAt` always equals `createdAt`. Both fields are present to satisfy the model convention.
 
 ---
 
 ## Cup Thresholds
 
-Thresholds live in `AppConfig` — never hardcoded. Default values:
+Thresholds live in `AppConfig` as percentage values — consistent with the percentage scores returned by `PerformanceService.getOverallWeekScore()`. Default values:
 
 |Cup|Minimum weekly score|
 |---|---|
-|🥉 Bronze|0.60|
-|🥈 Silver|0.75|
-|🥇 Gold|0.85|
-|💎 Diamond|0.95|
+|🥉 Bronze|60%|
+|🥈 Silver|75%|
+|🥇 Gold|85%|
+|💎 Diamond|95%|
 
-Below 0.60 — no cup, no record.
+Below 60% — no cup, no record.
 
 ---
 
@@ -73,5 +77,6 @@ Pure function — no side effects, no service calls.
 
 - One record per week maximum — `CupService` checks idempotency before writing
 - Append-only — never edited after creation
+- `updatedAt` initialized to `createdAt` — cups are never modified after creation
 - Written only by `CupService`
 - `toAchievementRecord()` called only by `AchievementService`
