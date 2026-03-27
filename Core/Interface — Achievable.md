@@ -1,4 +1,4 @@
-**File Name**: interface_achievable **Feature**: Core **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: interface_achievable **Layer**: Domain **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -32,12 +32,12 @@ Any domain model that represents an earned achievement implements `Achievable`:
 
 ---
 
-## What Lives in Infrastructure
+## What Lives in the Domain Layer
 
-Because lower-level features implement `Achievable` and return `AchievementRecord`, both `AchievementRecord` and `AchievementType` must live in Infrastructure — below all features that reference them. This avoids any upward dependency.
+Because lower-level features implement `Achievable` and return `AchievementRecord`, both `AchievementRecord` and `AchievementType` must live in the Domain layer — below all features that reference them. This avoids any upward dependency.
 
 ```
-Infrastructure owns:
+Domain layer owns:
   Achievable interface
   AchievementRecord model
   AchievementType enum
@@ -57,7 +57,7 @@ Infrastructure owns:
 
 ## Rules
 
-- `Achievable` and `AchievementRecord` live in Infrastructure — never in a feature
+- `Achievable`, `AchievementRecord`, and `AchievementType` live in the Domain layer — never in a feature
 - Only domain models implement `Achievable` — never services or repositories
 - `toAchievementRecord()` is a pure function — no side effects, no async, no service calls
 - `AchievementService` is the only caller of `toAchievementRecord()`

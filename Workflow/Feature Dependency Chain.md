@@ -18,11 +18,12 @@ Lower features never know upper features exist. A lower feature publishes events
 
 ## Domain Utilities
 
-Not features. No lifecycle, no state, no events. Static utility classes available to any layer above Domain.
+Not features. No lifecycle, no state, no events. Static utility classes and shared types available to any layer above Domain.
 
 - **TickGuard** — idempotency utility for tick subscribers that run logic without consuming a record. See `tick_guard`.
-- **Achievable** — interface implemented by domain models that participate in the achievement system.
-- **AchievementRecord**, **AchievementType** — shared domain types used by the achievement system.
+- **Achievable** — interface implemented by domain models that participate in the achievement system. See `interface_achievable`.
+- **AchievementRecord** — the unified display model for any earned achievement. See `model_achievement_record`.
+- **AchievementType** — enum defining the category of an achievement (`cup`, `streakMilestone`, `reward`).
 
 ---
 
@@ -285,11 +286,11 @@ No events subscribed. No events published. Pure computation on demand.
 
 **Publishes:** `AchievementEarnedEvent(record: AchievementRecord)`
 
-**Public functions (AchievementService):** `getAchievements(limit?, type?)`, `watchRecentAchievements()`, `getCupHistory()`, `getCupsSince(from)`, `getStreakRecord(definitionId)`, `getBestStreakOverall()`
+**Public functions (AchievementService):** `getAchievements(from, to, type?)`, `watchRecentAchievements(from, to)`, `getCupHistory(from, to)`, `getCupsSince(from)`, `getStreakRecord(definitionId)`, `getBestStreakOverall()`
 
-**Subscribes to:** `CupEarnedEvent` (Cups), `RewardEarnedEvent` (Rewards), `MilestoneEarnedEvent` (Milestones), `InstancePermanentlyDeletedEvent` (Commitment)
+**Subscribes to:** `CupEarnedEvent` (Cups), `RewardEarnedEvent` (Rewards), `MilestoneEarnedEvent` (Milestones)
 
-**Calls directly:** each event's model `.toAchievementRecord()` via Achievable interface
+**Calls directly:** each event's model `.toAchievementRecord()` via Achievable interface; `CupService` proxied reads; `StreakService` proxied reads
 
 ---
 

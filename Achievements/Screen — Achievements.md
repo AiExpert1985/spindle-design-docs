@@ -1,4 +1,4 @@
-**File Name**: screen_achievements **Feature**: Achievements **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: screen_achievements **Feature**: Achievements **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -40,7 +40,9 @@
 
 `[ All ] [ Cups ] [ Streaks ] [ Rewards ]` — All selected by default.
 
-Maps to `AchievementType` enum values. Tapping a chip filters `AchievementService.getAchievements(type: selected)`.
+Maps to `AchievementType` enum values. Tapping a chip filters `AchievementService.getAchievements(from, to, type: selected)`.
+
+The screen loads the last 30 days by default. Older history is accessible by scrolling — the date window expands backward in 30-day increments as the user scrolls to the bottom.
 
 ---
 
@@ -86,7 +88,7 @@ Average score over 30 days: 74%
 Keep weaving.
 ```
 
-Detail data fetched via `sourceId` from the `AchievementRecord` — calls the appropriate internal-proxied read function on `AchievementService`.
+Detail data fetched via `sourceId` from the `AchievementRecord` — calls the appropriate proxied read function on `AchievementService`.
 
 ---
 
@@ -99,9 +101,9 @@ Detail data fetched via `sourceId` from the `AchievementRecord` — calls the ap
 
 ## Data Sources
 
-|Data|Source|
-|---|---|
-|Achievement list|`AchievementService.getAchievements(limit?, type?)`|
-|Live updates|`AchievementService.watchRecentAchievements()` — stream|
-|Cup detail|`AchievementService.getCupHistory()` filtered by sourceId|
-|Streak detail|`AchievementService.getStreakRecord(definitionId)`|
+| Data             | Source                                                            |
+| ---------------- | ----------------------------------------------------------------- |
+| Achievement list | `AchievementService.getAchievements(from, to, type?)`             |
+| Live updates     | `AchievementService.watchRecentAchievements(from, to)` — stream   |
+| Cup detail       | `AchievementService.getCupHistory(from, to)` filtered by sourceId |
+| Streak detail    | `AchievementService.getStreakRecord(definitionId)`                |
