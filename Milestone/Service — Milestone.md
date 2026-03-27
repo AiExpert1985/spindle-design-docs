@@ -17,11 +17,13 @@
 ## AppConfig Constants
 
 ```
-streakMilestones: [7, 14, 30, 60, 90, 180, 365]
-  The streak day counts that trigger a milestone. Adjustable after launch.
+streakMilestones: [3, 5, 7, 10, 14]
+  The streak day counts that trigger a milestone. Matches the badge mapping
+  in component_streak_ui. Adjustable after launch — badge mapping must be
+  updated to match any changes here.
 ```
 
-These are starting values. They represent natural behavioral checkpoints — one week, two weeks, one month, two months, three months, six months, one year. They will be tuned based on real user data after launch.
+These values create frequent early recognition — 3 days, 5 days, one week, 10 days, two weeks. Early milestones matter most for habit formation. They will be tuned based on real user data after launch.
 
 ---
 

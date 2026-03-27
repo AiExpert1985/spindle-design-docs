@@ -1,4 +1,4 @@
-**File Name**: component_streak_ui **Feature**: Achievements **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: component_streak_ui **Feature**: Streak **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -23,12 +23,12 @@ Fires when `AchievementEarnedEvent` arrives with `type: streakMilestone`. Full-s
 └─────────────────────────────────────────┘
 ```
 
-- Badge derived from `streakCount` via `AppConfig.streakMilestones`
+- Badge derived from `streakCount` via the badge mapping below
 - Commitment name from `AchievementRecord.definitionId` → `AchievementService.getStreakRecord()`
 - Auto-dismisses after ~2.5 seconds, tap dismisses immediately
-- Triggered by `Encouragement` feature — this component is the visual, Encouragement is the trigger
+- Triggered by `EncouragementService` — this component is the visual, Encouragement is the trigger
 
-**Badge mapping:**
+**Badge mapping** — matches `AppConfig.streakMilestones` exactly:
 
 |Streak count|Badge|
 |---|---|
@@ -38,7 +38,7 @@ Fires when `AchievementEarnedEvent` arrives with `type: streakMilestone`. Full-s
 |10|🏆 Trophy|
 |14|💎 Diamond|
 
-Defined in `AppConfig.streakMilestones` — badge mapping lives in this component.
+Badge mapping is defined here and driven by `AppConfig.streakMilestones`. If milestones are adjusted in config, the badge mapping must be updated to match.
 
 ---
 
@@ -76,11 +76,12 @@ The component receives data from the parent screen's provider — it does not su
 - Negative `currentStreak` values are never shown as negative — shown as no current streak
 - Milestone overlay fires once per milestone event — deduplication handled by `MilestoneService`
 - Frozen commitments show ❄ state — no streak count, no badge
+- Badge mapping must stay in sync with `AppConfig.streakMilestones`
 
 ---
 
 ## Later Improvements
 
-**Streak history.** A tap on a commitment's streak row could open a history of past streak milestones for that commitment. Requires `AchievementService.getAchievements(type: streakMilestone, definitionId)`.
+**Streak history.** A tap on a commitment's streak row opens a history of past streak milestones for that commitment. Requires `AchievementService.getAchievements(type: streakMilestone, definitionId)`.
 
 **Accelerator indicator.** A subtle visual showing current momentum state alongside the streak. Deferred until UX for communicating the accelerator concept is settled.

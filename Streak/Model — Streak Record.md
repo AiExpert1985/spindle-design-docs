@@ -1,4 +1,4 @@
-**File Name**: model_streak_record **Feature**: Streak **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: model_streak_record **Feature**: Streak **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -10,9 +10,9 @@
 
 A streak is a single signed integer per commitment. Positive means consecutive kept windows. Negative means consecutive missed windows. Zero means neutral — either the commitment just started, or a streak just broke.
 
-**Positive streak** — the user has kept this commitment for consecutive days. The longer the streak, the stronger the momentum signal.
+**Positive streak** — the user has kept this commitment for consecutive windows. The longer the streak, the stronger the momentum signal.
 
-**Negative streak** — the user has missed this commitment for consecutive days. The longer the negative streak, the stronger the struggling signal.
+**Negative streak** — the user has missed this commitment for consecutive windows. The longer the negative streak, the stronger the struggling signal.
 
 **Zero** — neutral state. A positive streak that breaks goes to zero first before going negative on the next miss. This is intentional — one missed day after a long kept streak is a neutral moment, not immediately a bad streak. The pattern of missing is what matters.
 
@@ -21,12 +21,12 @@ A streak is a single signed integer per commitment. Positive means consecutive k
 ## Transition Rules
 
 ```
-Current positive, day kept   → increment by 1   (e.g. +5 → +6)
-Current positive, day missed → reset to 0        (e.g. +5 → 0)
-Current zero,     day kept   → increment to +1
-Current zero,     day missed → decrement to -1
-Current negative, day kept   → reset to 0        (e.g. -3 → 0)
-Current negative, day missed → decrement by 1    (e.g. -3 → -4)
+Current positive, window kept   → increment by 1   (e.g. +5 → +6)
+Current positive, window missed → reset to 0        (e.g. +5 → 0)
+Current zero,     window kept   → increment to +1
+Current zero,     window missed → decrement to -1
+Current negative, window kept   → reset to 0        (e.g. -3 → 0)
+Current negative, window missed → decrement by 1    (e.g. -3 → -4)
 ```
 
 Frozen windows are neutral — neither increment nor decrement. The streak is preserved through a freeze period unchanged.
@@ -44,17 +44,17 @@ StreakRecord
   updatedAt: DateTime
 ```
 
-- **definitionId** — the commitment this record belongs to. Also the document ID in storage — no separate `id` field needed.
-- **currentStreak** — the live signed streak value. Updated on every window close.
+- **definitionId** — the commitment this record belongs to. Also the document ID in storage — no separate `id` field needed. One record per commitment, `definitionId` is the unique key.
+- **currentStreak** — the live signed streak value. Updated on every window evaluation.
 - **bestStreak** — tracks only positive peaks. Updated when `currentStreak > bestStreak`. Never affected by negative streaks.
-- **createdAt** — set once on first window close for this commitment.
+- **createdAt** — set once on first window evaluation for this commitment.
 - **updatedAt** — updated on every write.
 
 ---
 
 ## Rules
 
-- One record per commitment — created on first window close, never recreated
+- One record per commitment — created on first window evaluation, never recreated
 - `CommitmentDefinition` has no streak fields — all streak state lives here
 - Frozen windows leave the record unchanged
 - `bestStreak` updated only when `currentStreak` is positive and exceeds the current best

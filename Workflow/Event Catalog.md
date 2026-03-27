@@ -143,14 +143,9 @@ StreakChangedEvent
   definitionId: String
   currentStreak: int
   bestStreak: int
-
-GlobalBestStreakEvent
-  newBest: int
-  definitionId: String
-  commitmentName: String
 ```
 
-`GlobalBestStreakEvent` published by `StreakService` when a new personal best streak is set across all commitments.
+`StreakChangedEvent` published only when `abs(currentStreak) >= AppConfig.minStreakDays`. The all-time global best streak is stored as `GlobalBestStreakRecord` in the Streak repository — not broadcast as an event. Features that need the global best call `StreakService.getBestStreakOverall()` directly.
 
 ---
 

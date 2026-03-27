@@ -213,9 +213,9 @@ No events published. No public read functions — internal only. See `service_no
 
 **Public functions:** `getStreakRecord(definitionId)`, `watchStreakRecord(definitionId)`, `getBestStreakOverall()`
 
-**Subscribes to:** `InstanceUpdatedEvent` where `status: closed` (Commitment), `InstancePermanentlyDeletedEvent` (Commitment)
+**Subscribes to:** `InstanceUpdatedEvent` where `status: closed` (Commitment), `InstancePermanentlyDeletedEvent` (Commitment), `WeekEndedEvent` (TemporalHelper)
 
-**Calls directly:** `PerformanceService.isWindowSuccess()`
+**Calls directly:** `PerformanceService.isWindowSuccess()`, `PerformanceService.getCommitmentWeekScore()`, `CommitmentIdentityService.getInstancesForWeek()`
 
 ---
 
