@@ -2,7 +2,7 @@
 
 ---
 
-**Purpose:** answers semantic questions about time using the current user's preferences. Any service that needs to check whether a timestamp represents a meaningful boundary — end of day, end of week, rest day, waking hours — calls this service. Callers pass only a timestamp. TemporalHelper reads the user's preferences internally and returns the answer.
+**Purpose:** answers semantic questions about time using the current user's preferences, and publishes domain-level time boundary events that any feature can subscribe to. Owns all time boundary detection in the app — no other feature detects day or week boundaries independently.
 
 ---
 
@@ -14,6 +14,14 @@ As a service, TemporalHelper owns the UserCore dependency in one place. Callers 
 
 ---
 
+## Why TemporalHelper Publishes Boundary Events
+
+Multiple features need to react when a day or week ends — Cups, Rewards, Garment, AI Insights, and others. The naive approach is for each feature to subscribe to Heartbeat and call `isWeekBoundary()` independently. This scatters boundary detection across the system, duplicates TickGuard logic, and forces every time-sensitive feature to depend on Heartbeat directly.
+
+TemporalHelper already owns boundary detection. Publishing the events here means one detection, one TickGuard check, and clean decoupling — features subscribe to a semantic signal (`WeekEndedEvent`) rather than a raw mechanism (Heartbeat tick). This also removes the coupling that previously forced CommitmentIdentityService to publish week events despite them being a time concern, not a commitment concern.
+
+---
+
 ## Why TemporalHelper Is Separate From Heartbeat
 
 Heartbeat's only job is to fire at intervals and emit a raw timestamp. It has no knowledge of what that timestamp means for any particular user.
@@ -22,10 +30,37 @@ TemporalHelper is where that meaning lives — and that meaning is user-specific
 
 ---
 
-## Interface
+## Position in the Stack
+
+TemporalHelper sits above UserCore and below all domain features. It depends on `UserCoreService` and `Heartbeat`. Features above it subscribe to its boundary events or call its query functions downward.
+
+---
+
+## Events Published
+
+```
+DayStartedEvent
+  dayStart: DateTime      // start of the new day per user's dayBoundaryHour
+
+DayEndedEvent
+  dayEnd: DateTime        // end of the day that just closed
+
+WeekEndedEvent
+  weekStart: DateTime     // start of the week that just ended
+
+WeekStartedEvent
+  weekStart: DateTime     // start of the new week
+```
+
+Published via TickGuard to prevent double-firing when multiple ticks arrive near a boundary.
+
+---
+
+## Query Interface
 
 ```dart
 abstract class TemporalHelperService {
+  // Query functions — callable by any feature
   bool isDayBoundary(DateTime timestamp);
   bool isWeekBoundary(DateTime timestamp);
   bool isRestDay(DateTime timestamp);
@@ -33,12 +68,18 @@ abstract class TemporalHelperService {
   DateTime currentDayStart(DateTime timestamp);
   DateTime currentWeekStart(DateTime timestamp);
   DateTime previousWeekStart(DateTime timestamp);
+
+  // Boundary event streams — subscribable by any feature
+  Stream<DayStartedEvent> get onDayStarted;
+  Stream<DayEndedEvent> get onDayEnded;
+  Stream<WeekEndedEvent> get onWeekEnded;
+  Stream<WeekStartedEvent> get onWeekStarted;
 }
 ```
 
 ---
 
-## Functions
+## Query Functions
 
 `isDayBoundary(timestamp) → bool` Returns true if the timestamp falls at or within the user's configured day boundary — the hour at which the day resets.
 
@@ -53,6 +94,30 @@ abstract class TemporalHelperService {
 `currentWeekStart(timestamp) → DateTime` Returns the start of the current week for this user, based on their configured week start day.
 
 `previousWeekStart(timestamp) → DateTime` Returns the start of the previous week for this user.
+
+---
+
+## Heartbeat Subscription
+
+```dart
+_heartbeat.longIntervalTick.listen((tick) {
+  final ts = tick.timestamp;
+
+  if (isDayBoundary(ts) &&
+      _guard.shouldRun('day_boundary', currentDayStart(ts))) {
+    _guard.markRan('day_boundary', currentDayStart(ts));
+    _publish(DayEndedEvent(dayEnd: ts));
+    _publish(DayStartedEvent(dayStart: currentDayStart(ts)));
+  }
+
+  if (isWeekBoundary(ts) &&
+      _guard.shouldRun('week_boundary', currentWeekStart(ts))) {
+    _guard.markRan('week_boundary', currentWeekStart(ts));
+    _publish(WeekEndedEvent(weekStart: previousWeekStart(ts)));
+    _publish(WeekStartedEvent(weekStart: currentWeekStart(ts)));
+  }
+});
+```
 
 ---
 
@@ -72,43 +137,24 @@ Preferences are cached on first call and refreshed when `UserCoreService.watchPr
 
 ---
 
-## Usage Pattern
-
-```dart
-// CommitmentIdentityService — subscribing to Heartbeat ticks
-_heartbeat.longIntervalTick.listen((tick) {
-  if (_temporal.isDayBoundary(tick.timestamp) &&
-      _guard.shouldRun('day_boundary', _temporal.currentDayStart(tick.timestamp))) {
-    _guard.markRan('day_boundary', _temporal.currentDayStart(tick.timestamp));
-    _onDayBoundary();
-  }
-
-  if (_temporal.isWeekBoundary(tick.timestamp) &&
-      _guard.shouldRun('week_boundary', _temporal.currentWeekStart(tick.timestamp))) {
-    _guard.markRan('week_boundary', _temporal.currentWeekStart(tick.timestamp));
-    _onWeekBoundary(_temporal.previousWeekStart(tick.timestamp));
-  }
-});
-```
-
----
-
 ## What TemporalHelper Does Not Do
 
 - Does not know anything about commitments, instances, or any domain concept
-- Does not publish or subscribe to events
-- Does not make decisions — only answers questions about time
+- Does not make decisions — only answers questions about time and fires boundary signals
 
 ---
 
 ## Dependencies
 
+- `Heartbeat` — subscribes to `longIntervalTick`
 - `UserCoreService` — reads and watches temporal preferences
+- `TickGuard` — prevents double-firing of boundary events
 
 ---
 
 ## Rules
 
 - Every service that needs time-based condition checks calls `TemporalHelperService` — never raw timestamp arithmetic
+- Every feature that needs to react to day or week boundaries subscribes to `TemporalHelperService` events — never detects boundaries independently
 - No domain knowledge — never imports any feature model or event above it in the stack
 - Preferences are cached — never read from `UserCoreService` on every function call

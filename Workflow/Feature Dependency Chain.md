@@ -81,7 +81,7 @@ UserSettings          (writes UserCoreProfile, capability checks,
 
 **Base features have no domain knowledge.** Heartbeat, Logger, and NotificationService provide raw capabilities. They never import, subscribe to, or call any feature above them. See `architecture_rules` §3.
 
-**TemporalHelper centralizes time interpretation.** Any feature that needs to know whether a timestamp is a day boundary, week boundary, or within waking hours calls `TemporalHelperService`. It owns the `UserCoreService` dependency internally — no feature reads temporal preferences directly.
+**TemporalHelper centralizes time interpretation and boundary detection.** Any feature that needs to know whether a timestamp is a day boundary, week boundary, or within waking hours calls `TemporalHelperService`. Any feature that needs to react to a day or week boundary subscribes to `TemporalHelperService` events — never detects boundaries independently. It owns the `UserCoreService` dependency internally and subscribes to Heartbeat — no other feature needs to do either for time purposes.
 
 **UserCore is the preference foundation.** Any feature that needs user preferences or tier reads from `UserCoreService`. Only `UserSettingsService` writes to it.
 
@@ -153,11 +153,13 @@ No events published. No events subscribed. Pure read-only interface. See `servic
 
 ### TemporalHelper
 
+**Publishes:** `DayStartedEvent(dayStart)`, `DayEndedEvent(dayEnd)`, `WeekEndedEvent(weekStart)`, `WeekStartedEvent(weekStart)`
+
 **Public functions (TemporalHelperService):** `isDayBoundary(timestamp)`, `isWeekBoundary(timestamp)`, `isRestDay(timestamp)`, `isWakingHours(timestamp)`, `currentDayStart(timestamp)`, `currentWeekStart(timestamp)`, `previousWeekStart(timestamp)`
 
-No events published. No events subscribed. Caches preferences internally, refreshes via `UserCoreService.watchProfile()`. See `service_temporal_helper`.
+**Subscribes to:** `Heartbeat.longIntervalTick`
 
-**Calls directly:** `UserCoreService.getTemporalPreferences()`, `UserCoreService.watchProfile()`
+**Calls directly:** `UserCoreService.getTemporalPreferences()`, `UserCoreService.watchProfile()`. See `service_temporal_helper`.
 
 ---
 
@@ -173,7 +175,7 @@ No events published. No public read functions — internal only. See `service_no
 
 ### Commitment ✓ LOCKED
 
-**Publishes (public):** `InstanceCreatedEvent(instanceId, definitionId, name, windowStart)`, `InstanceUpdatedEvent(instanceId, definitionId, windowStart, snapshot)`, `InstancePermanentlyDeletedEvent(definitionId)`, `WeekEndedEvent(weekStart)`, `WeekStartedEvent(weekStart)`
+**Publishes (public):** `InstanceCreatedEvent(instanceId, definitionId, name, windowStart)`, `InstanceUpdatedEvent(instanceId, definitionId, windowStart, snapshot)`, `InstancePermanentlyDeletedEvent(definitionId)`
 
 **Publishes (internal only):** `CommitmentEvent` — consumed only by `CommitmentIdentityService`
 
@@ -225,7 +227,7 @@ No events published. No public read functions — internal only. See `service_no
 
 **Public functions:** `getAllCups()`, `getCupsSince(from)`
 
-**Subscribes to:** `WeekEndedEvent` (Commitment)
+**Subscribes to:** `WeekEndedEvent` (TemporalHelper)
 
 **Calls directly:** `PerformanceService.getOverallWeekScore()`
 
@@ -239,7 +241,7 @@ No events published. No public read functions — internal only. See `service_no
 
 **Public functions:** `getLatestReward()`
 
-**Subscribes to:** `WeekEndedEvent` (Commitment)
+**Subscribes to:** `WeekEndedEvent` (TemporalHelper)
 
 **Calls directly:** `PerformanceService.getPerformanceForPeriod()`
 
@@ -273,7 +275,7 @@ No events subscribed. No events published. Pure computation on demand.
 
 **Public functions:** `watchGarmentProfile()`, `getWeeklyProgress()`, `getLiveWeekDelta()`
 
-**Subscribes to:** `InstanceCreatedEvent` (Commitment), `PerformanceUpdatedEvent` (Performance), `InstancePermanentlyDeletedEvent` (Commitment), `WeekEndedEvent` (Commitment)
+**Subscribes to:** `InstanceCreatedEvent` (Commitment), `PerformanceUpdatedEvent` (Performance), `InstancePermanentlyDeletedEvent` (Commitment), `WeekEndedEvent` (TemporalHelper)
 
 **Calls directly:** `CommitmentService.getDefinition()`, `StreakService.getStreakRecord()` (via AcceleratorService)
 
@@ -327,7 +329,7 @@ No events published. No events subscribed. Pure computation on demand.
 
 **Public functions (AIInsightService):** `generateMicroInsight(definitionId)`, `generateQuickSummary(weekStart)`, `generateDeepReport(from, to)`, `getLastInsight(type, definitionId?)`
 
-**Subscribes to:** `WeekEndedEvent` (Commitment) — for auto quick summary trigger
+**Subscribes to:** `WeekEndedEvent` (TemporalHelper) — for auto quick summary trigger
 
 **Calls directly:** `AnalyticsService` (all three compute functions), `UserSettingsService.checkAndDecrementInsightQuota()`, `AIInsightRepository`
 
@@ -370,8 +372,9 @@ Top-of-chain feature. Depends on Commitment and Performance via `UserCapabilityS
 |`WeeklyCup.toAchievementRecord()` calls a service|Must be pure — no side effects|
 |Any feature reads temporal preferences from `UserSettingsService`|Read from `UserCoreService` only|
 |Any feature calls `UserCoreService.getTemporalPreferences()` directly|Call `TemporalHelperService` — it owns that dependency|
-|`TemporalHelperService` imports any feature above it in the stack|Domain-agnostic — only calls `UserCoreService`|
-|`TemporalHelper` reads from any service|Caller passes preferences in — TemporalHelper has no dependencies|
+|Any feature subscribes to `Heartbeat` for boundary detection|Subscribe to `TemporalHelperService` events instead — boundary detection is centralized there|
+|Any feature publishes `WeekEndedEvent` or `DayEndedEvent`|These are published only by `TemporalHelperService`|
+|`TemporalHelperService` imports any feature above it in the stack|Only calls `UserCoreService` and subscribes to `Heartbeat`|
 
 ---
 

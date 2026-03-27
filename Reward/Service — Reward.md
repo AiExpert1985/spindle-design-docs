@@ -1,4 +1,4 @@
-**File Name**: service_reward **Feature**: Rewards **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: service_reward **Feature**: Rewards **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -8,7 +8,7 @@
 
 ## Events Subscribed
 
-### `WeekEndedEvent` → `_onWeekEnded(event)`
+### `TemporalHelperService.onWeekEnded` → `_onWeekEnded(event)`
 
 ```
 lastReward = RewardRepository.getLatestReward()
@@ -60,7 +60,7 @@ Used internally for interval calculation.
 
 ## Dependencies
 
-- EventBus — subscribes to `WeekEndedEvent` (published by CommitmentIdentityService); publishes `RewardEarnedEvent`
+- `TemporalHelperService` — subscribes to `onWeekEnded`
 - `RewardRepository` — reads and writes `RewardRecord`
 - `PerformanceService.getPerformanceForPeriod()` — rolling period score
 - `AppConfig` — `rewardIntervalDays`, `rewardPerformanceThreshold`

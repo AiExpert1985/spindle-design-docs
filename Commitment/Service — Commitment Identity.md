@@ -10,7 +10,7 @@
 
 `CommitmentService` manages definitions and publishes internal events. `CommitmentIdentityService` translates those into instance operations and publishes instance events that the rest of the application subscribes to. No feature outside Commitment ever sees a `CommitmentEvent` — they only see instance events.
 
-`livePerformance` on each instance is calculated and written by `PerformanceService` via `updateLivePerformance()` — a valid downward write-back call. This service stores the value, never calculates it.
+`livePerformance` on each instance is calculated and written by `PerformanceService` via `updateLivePerformance()` — a valid downward call. This service stores the value, never calculates it.
 
 ---
 
@@ -72,8 +72,6 @@ Closing is unconditional — it happens regardless of `commitmentState`. What `c
 
 **Catch-up:** for each commitment with `commitmentState == active` and no pending instance (device was inactive at close time), replicates from the last closed instance. If no closed instance exists, reads definition once and generates from scratch.
 
-**Week boundary:** if `_temporal.isWeekBoundary(tick.timestamp)` and `TickGuard` confirms not already run for this week boundary, publishes `WeekEndedEvent(previousWeekStart)` and `WeekStartedEvent(currentWeekStart)`. Week boundaries are published here because detecting them requires user preferences, which only `TemporalHelperService` knows — not Heartbeat.
-
 All tick operations use `TickGuard` to prevent double-processing.
 
 ---
@@ -88,7 +86,7 @@ InstanceCreatedEvent
   windowStart: DateTime
 ```
 
-New pending instance exists. Carries `name` so subscribers (including `NotificationSchedulingService`) never need a definition lookup. Triggers `PerformanceService` to initialise `livePerformance`.
+New pending instance exists. Carries `name` so subscribers never need a definition lookup. Triggers `PerformanceService` to initialise `livePerformance`.
 
 ```
 InstanceUpdatedEvent
@@ -175,9 +173,8 @@ All instances for a given week, optionally filtered by commitment.
 - `Heartbeat` — subscribes to `longIntervalTick`
 - `CommitmentInstanceRepository` — instance storage
 - `CommitmentService` — reads definition for catch-up generation when no prior instance exists
-- `TemporalHelperService` — day and week boundary detection
+- `TemporalHelperService` — day boundary detection for catch-up logic
 - `TickGuard` (Domain utility) — prevents double-processing on tick
-- `UserCoreService` — not called directly; accessed through `TemporalHelperService`
 
 ---
 
@@ -192,3 +189,4 @@ All instances for a given week, optionally filtered by commitment.
 - Commitment state checked before replication — non-active commitments do not get a successor
 - Any `CommitmentEvent(type: updated)` clears and recreates the pending instance — no inspection of what changed
 - `CommitmentEvent` consumed only by this service — never forwarded outside Commitment
+- Week and day boundary events are published by `TemporalHelperService` — never by this service

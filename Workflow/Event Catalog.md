@@ -24,9 +24,15 @@ Raw timestamps only. Subscribers use `TemporalHelper` to interpret. Heartbeat ne
 
 ## Boundary Events
 
-Published by: CommitmentIdentityService (Commitment feature) — detects day and week boundaries on `LongIntervalTick` using `TemporalHelper`.
+Published by: TemporalHelperService — detects day and week boundaries by subscribing to `Heartbeat.longIntervalTick` and applying user preferences via its own calculation. Uses TickGuard to prevent double-firing.
 
 ```
+DayStartedEvent
+  dayStart: DateTime      // start of the new day per user's dayBoundaryHour
+
+DayEndedEvent
+  dayEnd: DateTime        // end of the day that just closed
+
 WeekEndedEvent
   weekStart: DateTime     // start of the week that just ended
 
@@ -34,7 +40,7 @@ WeekStartedEvent
   weekStart: DateTime     // start of the new week
 ```
 
-These are the signals that trigger weekly calculations across the app — cups, rewards, garment weekly sealing, AI summaries. Week boundaries are user-relative (week start day varies by region) — `TemporalHelper` makes the determination, `CommitmentIdentityService` publishes when the condition is met.
+These are the signals that trigger time-based reactions across the app — cups, rewards, garment weekly sealing, AI summaries. All boundaries are user-relative (week start day, day boundary hour vary by region) — TemporalHelper owns this detection so no other feature needs to do it independently.
 
 ---
 
@@ -183,4 +189,4 @@ BonusThreadAwardedEvent
 
 **Internal events** (`CommitmentEvent`) are not part of the application's public event surface. They exist only for coordination within the Commitment feature. No other feature should ever subscribe to them.
 
-**Tick events carry timestamps only.** No feature ever publishes a `DayEndedEvent` or `MidnightEvent` from Heartbeat directly. Each feature that needs to react to a time boundary detects it independently using `TemporalHelper`.
+**Tick events carry timestamps only.** Heartbeat fires raw timestamps — it never publishes boundary events. `TemporalHelperService` subscribes to Heartbeat, detects day and week boundaries using user preferences, and publishes the semantic boundary events (`DayStartedEvent`, `DayEndedEvent`, `WeekEndedEvent`, `WeekStartedEvent`). Features that need to react to boundaries subscribe to TemporalHelper — never to Heartbeat directly for boundary detection.

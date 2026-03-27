@@ -45,7 +45,7 @@ This report will be replaced when you generate a new one.
 
 **Quick summary (auto):**
 
-1. `WeekEndedEvent` fires → `WeeklySummaryService` subscribes
+1. `TemporalHelperService.onWeekEnded` fires → `WeeklySummaryService` subscribes
 2. Call `AIInsightService.generateQuickSummary(weekStart)`
 3. On `Success` → call `NotificationService.push(message, route?)` to notify user
 4. On `Failure` → log via `LoggerService`, no notification sent
@@ -73,6 +73,6 @@ The component never enforces rate limits or checks storage directly. It calls `A
 
 ## Dependencies
 
-- `CommitmentService` — subscribes to `WeekEndedEvent` (for auto quick summary trigger)
+- `TemporalHelperService` — subscribes to `onWeekEnded` (for auto quick summary trigger)
 - `AIInsightService` — generation, cached insight retrieval, storage
 - `NotificationService` — sends summary-ready notification on quick summary success

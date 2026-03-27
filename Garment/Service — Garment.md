@@ -70,7 +70,7 @@ Fires on every `livePerformance` change. Triggers a live garment update using th
 
 Deletes the `GarmentProfile` and all `CommitmentWeeklyProgress` records for this `definitionId`.
 
-### `WeekEndedEvent` → `_onWeekEnded(event)`
+### `TemporalHelperService.onWeekEnded` → `_onWeekEnded(event)`
 
 Seals the live `CommitmentWeeklyProgress` record for all commitments — sets `isCurrentWeek: false` so the record becomes an immutable historical fact. Creates a new live record for the coming week.
 
@@ -138,8 +138,9 @@ The running delta for the current week. Used by the garment display to show "Thi
 
 ## Dependencies
 
-- `CommitmentService` — subscribes to `InstanceCreatedEvent`, `InstancePermanentlyDeletedEvent`, `WeekEndedEvent`
+- `CommitmentService` — subscribes to `InstanceCreatedEvent`, `InstancePermanentlyDeletedEvent`
 - `PerformanceService` — subscribes to `PerformanceUpdatedEvent`; calls `isWindowSuccess()`
+- `TemporalHelperService` — subscribes to `onWeekEnded`
 - `GarmentRepository` — reads and writes `GarmentProfile` and `CommitmentWeeklyProgress`
 - `CommitmentService.getDefinition()` — reads definition once at garment creation
 - `AcceleratorService.getMultiplier()` — called by `_getPerformance()` when `garmentUsesAccelerator` is true. `AcceleratorService` calls `StreakService.getStreakRecord()` directly — Streak is below Garment in the chain, a valid downward call

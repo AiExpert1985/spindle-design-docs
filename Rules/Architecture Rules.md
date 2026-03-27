@@ -131,7 +131,7 @@ This is the _Separated Interface_ pattern: define the contract in one place, imp
 
 **Heartbeat** fires periodic time signals — a long-interval tick and a short-interval tick — carrying only a raw timestamp. Features that need time-based behavior subscribe to these streams. Heartbeat has no knowledge of what any subscriber will do with the timestamp. See `heartbeat`.
 
-**TemporalHelper** answers semantic questions about time using the current user's preferences — is this a day boundary? is this within waking hours? It sits above UserCore and owns the `UserCoreService` dependency internally. Callers pass only a timestamp and get a direct answer. No feature reads temporal preferences directly — all time interpretation goes through `TemporalHelperService`. See `service_temporal_helper`.
+**TemporalHelper** answers semantic questions about time using the current user's preferences, and publishes day and week boundary events that any feature can subscribe to. It sits above UserCore and subscribes to Heartbeat. Callers pass only a timestamp to get an answer — no preferences handling required. Features that need to react to day or week boundaries subscribe to `TemporalHelperService` events rather than detecting boundaries independently. This centralizes all boundary detection in one place. See `service_temporal_helper`.
 
 **Notifications** accept a payload from any feature and handle all delivery details. Features never call the OS notification API directly. The delivery mechanism — local notifications, push, in-app banners — can change without touching any feature. See `notification_service`.
 
