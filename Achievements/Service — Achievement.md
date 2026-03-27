@@ -2,50 +2,39 @@
 
 ---
 
-**Purpose:** pure aggregator. Subscribes to events from all achievement-producing features (Cups, Rewards, Milestones), calls `toAchievementRecord()` on each event's model via the `Achievable` interface, writes the unified `AchievementRecord`, and publishes `AchievementEarnedEvent`. The single public read interface for achievement data.
+**Purpose:** the single entry point for recording achievements. Producing features call `addAchievement()` directly — no event subscriptions needed. Stores `AchievementRecord`, publishes `AchievementEarnedEvent`, and serves all achievement reads from its own collection.
 
 ---
 
 ## Design Decisions
 
-**Why AchievementService is a pure aggregator.** Each achievement-producing feature (Cups, Rewards, Milestones) is independent — it owns its own model, repository, and logic. Achievements aggregates their outputs without knowing their internals. Adding a new achievement-producing feature requires no change to `AchievementService` — only a new feature that publishes an event carrying an `Achievable` model.
+**Why producing features call `addAchievement()` directly instead of publishing events.** The original design had Achievements subscribing to events from Cups, Rewards, Milestones, Streak, and Garment. This meant Achievements sat above all those features — but Progression also needed to sit above Achievements. This created a long subscription chain where adding a new producing feature required modifying `AchievementService`. Moving Achievements below all producing features inverts this: producing features call downward into a stable API. Adding a new producing feature requires zero changes to `AchievementService`.
 
-**Why `toAchievementRecord()` is called here.** The producing feature publishes its domain event. `AchievementService` decides when and how to translate that into an `AchievementRecord`. The translation is a one-liner because `Achievable` enforces the data contract — but the decision to translate lives here.
+**Why `AchievementService` is the single source of truth for all achievement data.** Every achievement flows through `addAchievement()`. This means the `AchievementRecord` collection contains everything — cups history, streak milestones, garment completions, rewards. All queries are answered from this one collection. No feature needs to be called for achievement data. Callers get one consistent interface regardless of which feature produced the achievement.
 
-**Why Milestones is independent, not internal.** Milestones has its own model, repository, and service — it qualifies as an independent feature by the same criteria as Cups and Rewards. `AchievementService` subscribes to `MilestoneEarnedEvent` from Milestones exactly as it subscribes to `CupEarnedEvent` and `RewardEarnedEvent`.
-
-**Why achievement records are never deleted.** Achievements represent moments in the user's history — earning a diamond cup, reaching a 7-day streak. These are permanent facts. Deleting a commitment does not erase what the user achieved with it. The `sourceId` on a record may become stale, but the achievement itself remains.
+**Why reads like `getCupHistory` and `getBestStreak` live here.** These are filtered reads on the `AchievementRecord` collection — `type: cup` for cups, `subtype: globalBestStreak` for best streak. No external service calls needed. `AchievementService` owns the data and serves it directly. This keeps Progression, Encouragement, and screens from needing to know which feature produced which achievement.
 
 ---
 
-## Events Subscribed
+## Public Write Function
 
-### `CupService.onCupEarned` → `_onCupEarned(event)`
+### `addAchievement(AchievementRecord record)`
+
+The single entry point for all achievement recording.
 
 ```
-if AchievementRepository.existsForSource(event.cup.id): return  // safety net
-record = event.cup.toAchievementRecord()
+if AchievementRepository.existsForSource(record.sourceId): return  // safety net
 AchievementRepository.saveRecord(record)
 publish AchievementEarnedEvent(record)
 ```
 
-### `RewardService.onRewardEarned` → `_onRewardEarned(event)`
+Called by producing features at the achievement moment:
 
-```
-if AchievementRepository.existsForSource(event.record.id): return
-record = event.record.toAchievementRecord()
-AchievementRepository.saveRecord(record)
-publish AchievementEarnedEvent(record)
-```
-
-### `MilestoneService.onMilestoneEarned` → `_onMilestoneEarned(event)`
-
-```
-if AchievementRepository.existsForSource(event.record.id): return
-record = event.record.toAchievementRecord()
-AchievementRepository.saveRecord(record)
-publish AchievementEarnedEvent(record)
-```
+- `CupService` — when a cup is earned
+- `RewardService` — when a reward is earned
+- `MilestoneService` — when a streak milestone is crossed
+- `StreakService` — when a new global best streak crosses a milestone
+- `GarmentService` — when a garment reaches completion
 
 ---
 
@@ -56,53 +45,60 @@ AchievementEarnedEvent
   record: AchievementRecord
 ```
 
-Published only after the record is successfully written. Consumed by `ScoringService` (Progression) and `EncouragementService`.
+Published after every successful write. Consumed by `ScoringService` (Progression) and `EncouragementService`.
 
 ---
 
 ## Public Read Functions
 
-### `getAchievements(from, to, type?) → List<AchievementRecord>`
+All reads query the `AchievementRecord` collection internally — no calls to other features.
 
-All achievement records in the date range, optionally filtered by type. Ordered by `createdAt` descending. Used by the achievements screen.
+### `getAchievements(from, to, type?, subtype?, definitionId?)` → List<AchievementRecord>
 
-### `watchRecentAchievements(from, to) → Stream<List<AchievementRecord>>`
+Unified read. All filters optional. Ordered by `createdAt` descending.
 
-Live stream. Used by the achievements screen for live updates during a session.
+### Convenience wrappers
 
-### `getCupHistory(from, to) → List<WeeklyCup>`
+```dart
+getAchievementsForWeek(DateTime weekStart)
+getAchievementsForMonth(DateTime month)
+getAchievementsForPeriod(DateTime from, DateTime to)
+```
 
-Proxied from `CupService.getAllCups(from, to)`. Used by the Progression screen and achievement detail sheet.
+### `watchAchievements(from, to)` → Stream<List<AchievementRecord>>
 
-### `getCupsSince(from) → List<WeeklyCup>`
+Live stream. Used by the achievements screen.
 
-Proxied from `CupService.getCupsSince(from)`. Used by `ScoringService` for bonus trigger evaluation.
+### `getCupHistory(from, to)` → List<AchievementRecord>
 
-### `getStreakRecord(definitionId) → StreakRecord?`
+Returns achievements where `type: cup` in the period. Ordered by `createdAt` descending.
 
-Proxied from `StreakService`. Used by the commitment detail screen and achievement detail sheet.
+### `getCupsSince(from)` → List<AchievementRecord>
 
-### `getBestStreakOverall() → GlobalBestStreakRecord?`
+Returns achievements where `type: cup` and `createdAt >= from`.
 
-Proxied from `StreakService`. Returns the full `GlobalBestStreakRecord` — which commitment, how many days, when achieved. Used by the Your Record screen.
+### `getBestStreak(definitionId?)` → AchievementRecord?
+
+Returns the achievement where `subtype: globalBestStreak`. If `definitionId` provided, filters to that commitment. Otherwise returns the all-time global best.
+
+### `getStreakAchievements(definitionId, from, to)` → List<AchievementRecord>
+
+Returns achievements where `type: streak` or `type: milestone` for a specific commitment. Used by commitment detail screen.
 
 ---
 
 ## Rules
 
-- Calls `toAchievementRecord()` on every received `Achievable` model — never constructs `AchievementRecord` manually
-- `AchievementEarnedEvent` published only after the record is successfully written
-- Never imports internal logic from Cups, Rewards, Milestones, or Streak — only their public events and the `Achievable` interface
-- Producing features guarantee no duplicate events through their own idempotency — `existsForSource` is a secondary safety net
-- Achievement records are permanent — never deleted based on commitment deletion or any other event
-- All read queries use a time window — never fetch unbounded history
+- `addAchievement()` is the only write path — no other service writes `AchievementRecord`
+- `AchievementEarnedEvent` published only after successful write
+- All reads are self-contained — no calls to Cups, Streak, Milestones, Garment, or Rewards
+- Records are permanent — never deleted for any reason
+- Idempotency: producing features prevent duplicate calls; `existsForSource` is the safety net
+- All reads use a time window
 
 ---
 
 ## Dependencies
 
-- `CupService` — subscribes to `onCupEarned`; proxied reads `getCupHistory()`, `getCupsSince()`
-- `RewardService` — subscribes to `onRewardEarned`
-- `MilestoneService` — subscribes to `onMilestoneEarned`
-- `StreakService` — proxied reads `getStreakRecord()`, `getBestStreakOverall()`
-- `AchievementRepository` — writes and reads `AchievementRecord`
+- `AchievementRepository` — reads and writes `AchievementRecord`
+- Publishes `AchievementEarnedEvent` on its own stream

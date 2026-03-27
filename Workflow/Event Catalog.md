@@ -130,26 +130,33 @@ Published after every `livePerformance` change. Features that need to react to a
 
 ## Reward Events
 
-Published by: RewardService, StreakService
+Published by: StreakService
 
 ```
-CupEarnedEvent
-  cup: WeeklyCup
-
-RewardEarnedEvent
-  record: RewardRecord
-
 StreakChangedEvent
   definitionId: String
   currentStreak: int
   bestStreak: int
 ```
 
-`StreakChangedEvent` published only when `abs(currentStreak) >= AppConfig.minStreakDays`. The all-time global best streak is stored as `GlobalBestStreakRecord` in the Streak repository — not broadcast as an event. Features that need the global best call `StreakService.getBestStreakOverall()` directly.
+`StreakChangedEvent` published only when `abs(currentStreak) >= AppConfig.minStreakDays`. Consumed by `MilestoneService`. All other achievement moments (cups, rewards, milestones, garment completions, global best streaks) are recorded via direct `AchievementService.addAchievement()` calls from producing services — no events needed for those handoffs.
 
 ---
 
-## Achievement Events
+## Garment Events
+
+Published by: GarmentService
+
+```
+GarmentUpdatedEvent
+  definitionId: String
+  completionPercent: double
+  weeklyDelta: double
+```
+
+`GarmentUpdatedEvent` consumed by the presentation layer for live display. When a garment completes, `GarmentService` calls `AchievementService.addAchievement()` directly — no event published for the achievement handoff.
+
+---
 
 Published by: AchievementService
 
@@ -162,7 +169,7 @@ AchievementEarnedEvent
 
 ## Progression Events
 
-Published by: ProgressionService
+Published by: ProgressionService (LevelReachedEvent), ScoringService (PointsAwardedEvent — internal only)
 
 ```
 LevelReachedEvent
@@ -170,11 +177,13 @@ LevelReachedEvent
   levelName: String
   previousLevel: int
 
-BonusThreadAwardedEvent
-  weekStart: DateTime
-  bonusAmount: double
-  trigger: BonusTrigger
+PointsAwardedEvent             // internal to Progression — never subscribed outside
+  points: double
+  subtype: AchievementSubtype
+  createdAt: DateTime
 ```
+
+`LevelReachedEvent` consumed by `EncouragementService` for celebration and `NotificationSchedulingService` for the level-up notification. `PointsAwardedEvent` is internal — `ScoringService` publishes it, `ProgressionService` consumes it. No feature outside Progression subscribes to it.
 
 ---
 

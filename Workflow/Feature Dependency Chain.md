@@ -18,12 +18,11 @@ Lower features never know upper features exist. A lower feature publishes events
 
 ## Domain Utilities
 
-Not features. No lifecycle, no state, no events. Static utility classes and shared types available to any layer above Domain.
+Not features. No lifecycle, no state, no events. Static utility classes available to any layer above Domain.
 
-- **TickGuard** — idempotency utility for tick subscribers that run logic without consuming a record. See `tick_guard`.
-- **Achievable** — interface implemented by domain models that participate in the achievement system. See `interface_achievable`.
-- **AchievementRecord** — the unified display model for any earned achievement. See `model_achievement_record`.
-- **AchievementType** — enum defining the category of an achievement (`cup`, `streakMilestone`, `reward`).
+- **TickGuard** — idempotency utility for tick subscribers. See `tick_guard`.
+
+`AchievementRecord`, `AchievementType`, and `AchievementSubtype` are owned by the **Achievements feature** — not the Domain layer. Producing features reference them as downward dependencies since Achievements sits below them in the chain.
 
 ---
 
@@ -37,7 +36,7 @@ Not features. No lifecycle, no state, no events. Static utility classes and shar
       ↓
 UserCore              (UserCoreProfile, preferences, tier — read by any feature)
       ↓
-TemporalHelper        (answers time questions using user preferences)
+TemporalHelper        (answers time questions, publishes day/week boundary events)
       ↓
 Notification Scheduling
   (watches Commitment instances, watches Heartbeat, fires via NotificationService)
@@ -48,23 +47,23 @@ Activity              ✓ LOCKED
       ↓
 Performance           ✓ LOCKED
       ↓
+Achievements          (addAchievement() entry point — producing features call downward)
+      ↓
 ┌─────────────────────────────────────────────────────────┐
 │  Streak · Cups · Rewards · Analytics                    │  same level — each independent
-│  Streak publishes StreakChangedEvent                    │  no dependency between them
+│  Streak publishes StreakChangedEvent                    │  all call AchievementService
 └─────────────────────────────────────────────────────────┘
       ↓
 ┌─────────────────────────────────────────────────────────┐
 │  Milestones                                             │  depends on Streak only
-│  subscribes to StreakChangedEvent                       │
+│  subscribes to StreakChangedEvent                       │  calls AchievementService
 └─────────────────────────────────────────────────────────┘
       ↓
-┌─────────────────────────────────────────────────────────┐
-│  Garment · Achievements                                 │  same level — no dependency
-│  Garment reads Streak (via AcceleratorService)          │  between them
-│  Achievements subscribes to Cup, Reward, Milestone      │
-└─────────────────────────────────────────────────────────┘
+Garment               (depends on Performance, Streak via AcceleratorService)
+                      (calls AchievementService on garment completion)
       ↓
 Progression           (ScoringService · ProgressionService — internal)
+                      (subscribes to AchievementEarnedEvent)
       ↓
 Encouragement
       ↓
@@ -92,11 +91,11 @@ UserSettings          (writes UserCoreProfile, capability checks,
 
 **Performance is the score authority.** No feature above Performance calculates scores independently.
 
-**`Achievable` is the achievement contract.** Any feature whose domain model implements `Achievable` participates in the achievement system. `AchievementService` subscribes to their events and calls `toAchievementRecord()` — it never imports feature internals.
+**Achievements is the single entry point for all achievement recording.** Producing features (Cups, Rewards, Milestones, Streak, Garment) call `AchievementService.addAchievement()` directly. Achievements sits below all producing features — they call downward into a stable API. No event subscriptions needed for the achievement handoff. Adding a new producing feature requires zero changes to `AchievementService`.
 
-**Achievements is a pure aggregator.** It owns `AchievementRecord` storage and the unified read interface. It does not own the logic of what constitutes an achievement — that belongs to each producing feature.
+**AchievementService is the single source of truth for all achievement data.** Every achievement flows through `addAchievement()`. All queries — cups history, streak records, best streak, garment completions — are answered from the `AchievementRecord` collection. No feature needs to be called for achievement data. `AchievementService` owns and serves it all.
 
-**Progression never knows what an achievement is.** `ScoringService` translates `AchievementEarnedEvent` to points. `ProgressionService` only knows about points and levels.
+**Progression never knows what an achievement is.** `ScoringService` translates `AchievementEarnedEvent` to points using a subtype-to-points table in `AppConfig`. `ProgressionService` only knows about points and levels. Changing point values or adding new achievement types never touches `ProgressionService`.
 
 **Same-level features are fully independent.** No feature calls or subscribes to a feature at the same level.
 
@@ -208,6 +207,16 @@ No events published. No public read functions — internal only. See `service_no
 
 ---
 
+### Achievements
+
+**Publishes:** `AchievementEarnedEvent(record: AchievementRecord)`
+
+**Public functions (AchievementService):** `addAchievement(record)`, `getAchievements(from, to, type?, subtype?, definitionId?)`, `getAchievementsForWeek(weekStart)`, `getAchievementsForMonth(month)`, `getAchievementsForPeriod(from, to)`, `watchAchievements(from, to)`, `getCupHistory(from, to)`, `getCupsSince(from)`, `getBestStreak(definitionId?)`, `getStreakAchievements(definitionId, from, to)`
+
+No event subscriptions — producing features call `addAchievement()` directly downward.
+
+---
+
 ### Streak
 
 **Publishes:** `StreakChangedEvent(definitionId, currentStreak, bestStreak)`
@@ -216,57 +225,35 @@ No events published. No public read functions — internal only. See `service_no
 
 **Subscribes to:** `InstanceUpdatedEvent` where `status: closed` (Commitment), `InstancePermanentlyDeletedEvent` (Commitment), `WeekEndedEvent` (TemporalHelper)
 
-**Calls directly:** `PerformanceService.isWindowSuccess()`, `PerformanceService.getCommitmentWeekScore()`, `CommitmentIdentityService.getInstancesForWeek()`
+**Calls directly:** `PerformanceService.isWindowSuccess()`, `PerformanceService.getCommitmentWeekScore()`, `CommitmentIdentityService.getInstancesForWeek()`, `AchievementService.addAchievement()`
 
 ---
 
 ### Cups
 
-**Implements Achievable on:** `WeeklyCup`
-
-**Publishes:** `CupEarnedEvent(cup: WeeklyCup)`
-
-**Public functions:** `getAllCups()`, `getCupsSince(from)`
+**Public functions:** `getAllCups(from, to)`, `getCupsSince(from)`
 
 **Subscribes to:** `WeekEndedEvent` (TemporalHelper)
 
-**Calls directly:** `PerformanceService.getOverallWeekScore()`
+**Calls directly:** `PerformanceService.getOverallWeekScore()`, `AchievementService.addAchievement()`
 
 ---
 
 ### Rewards
 
-**Implements Achievable on:** `RewardRecord`
-
-**Publishes:** `RewardEarnedEvent(record: RewardRecord)`
-
 **Public functions:** `getLatestReward()`
 
 **Subscribes to:** `WeekEndedEvent` (TemporalHelper)
 
-**Calls directly:** `PerformanceService.getPerformanceForPeriod()`
-
----
-
-### Analytics
-
-**Public functions:** `computeCommitmentFacts()`, `computeWeeklyFacts()`, `computeDayFacts()`
-
-**Calls directly:** `ActivityService`, `PerformanceService`, `CommitmentIdentityService`, `StreakService.getStreakRecord()`
-
-No events subscribed. No events published. Pure computation on demand.
+**Calls directly:** `PerformanceService.getPerformanceForPeriod()`, `AchievementService.addAchievement()`
 
 ---
 
 ### Milestones
 
-**Implements Achievable on:** `MilestoneRecord`
-
-**Publishes:** `MilestoneEarnedEvent(record: MilestoneRecord)`
-
 **Subscribes to:** `StreakChangedEvent` (Streak), `InstancePermanentlyDeletedEvent` (Commitment)
 
-**Calls directly:** `CommitmentService.getDefinition()` — name snapshot only
+**Calls directly:** `CommitmentService.getDefinition()`, `AchievementService.addAchievement()`
 
 ---
 
@@ -278,19 +265,17 @@ No events subscribed. No events published. Pure computation on demand.
 
 **Subscribes to:** `InstanceCreatedEvent` (Commitment), `PerformanceUpdatedEvent` (Performance), `InstancePermanentlyDeletedEvent` (Commitment), `WeekEndedEvent` (TemporalHelper)
 
-**Calls directly:** `CommitmentService.getDefinition()`, `StreakService.getStreakRecord()` (via AcceleratorService)
+**Calls directly:** `CommitmentService.getDefinition()`, `StreakService.getStreakRecord()` (via AcceleratorService), `AchievementService.addAchievement()`
 
 ---
 
-### Achievements
+### Analytics
 
-**Publishes:** `AchievementEarnedEvent(record: AchievementRecord)`
+**Public functions:** `computeCommitmentFacts()`, `computeWeeklyFacts()`, `computeDayFacts()`
 
-**Public functions (AchievementService):** `getAchievements(from, to, type?)`, `watchRecentAchievements(from, to)`, `getCupHistory(from, to)`, `getCupsSince(from)`, `getStreakRecord(definitionId)`, `getBestStreakOverall()`
+No events subscribed. No events published. Pure computation on demand.
 
-**Subscribes to:** `CupEarnedEvent` (Cups), `RewardEarnedEvent` (Rewards), `MilestoneEarnedEvent` (Milestones)
-
-**Calls directly:** each event's model `.toAchievementRecord()` via Achievable interface; `CupService` proxied reads; `StreakService` proxied reads
+**Calls directly:** `ActivityService.getEntriesForPeriod()`, `ActivityService.getEntriesForDay()`, `PerformanceService.getPerformanceForPeriod()`, `PerformanceService.getDayScore()`, `CommitmentIdentityService.getInstances()`
 
 ---
 
@@ -298,11 +283,11 @@ No events subscribed. No events published. Pure computation on demand.
 
 **Internal services:** `ScoringService` (`AchievementEarnedEvent` → `PointsAwardedEvent`), `ProgressionService` (`PointsAwardedEvent` → `LevelReachedEvent`)
 
-**Publishes:** `LevelReachedEvent`, `PointsAwardedEvent` (internal)
+**Publishes:** `LevelReachedEvent(newLevel, levelName, previousLevel)`, `PointsAwardedEvent` (internal only)
 
-**Public functions:** `getProgressionSummary()`, `watchProgressionSummary()`, `getCurrentWeekProjection()`, `isReferralUnlocked()`
+**Public functions (ProgressionService):** `getProgressionSummary()`, `watchProgressionSummary()`, `getCurrentWeekProjection()`, `isReferralUnlocked()`
 
-**Subscribes to:** `AchievementEarnedEvent` (Achievements) — consumed by ScoringService
+**Subscribes to:** `AchievementEarnedEvent` (Achievements) — consumed by ScoringService internally
 
 **Calls directly:** `PerformanceService.getOverallWeekScore()` — current week projection only
 
@@ -363,18 +348,16 @@ Top-of-chain feature. Depends on Commitment and Performance via `UserCapabilityS
 |Notification Scheduling calls `ActivityService` or `PerformanceService`|Above its position — scheduling only, no scoring|
 |Cups calls `StreakService`|Same-level dependency|
 |Rewards calls `CupService`|Same-level dependency|
-|Streak subscribes to `CupEarnedEvent`|Same-level dependency|
-|Milestones subscribes to `CupEarnedEvent`|Milestones depends on Streak only — Cup is same-level|
+|Streak subscribes to `CupEarnedEvent`|No such event — Cups calls addAchievement() directly|
 |Milestones calls `RewardService`|Same-level dependency|
-|Achievements calls `ProgressionService`|Upward dependency|
-|Garment calls `AchievementService`|Same-level dependency|
-|`ProgressionService` reads `AchievementService` directly|ProgressionService only knows points — ScoringService handles achievements|
-|Any feature implements `Achievable` on a service|Achievable belongs on domain models only|
-|`WeeklyCup.toAchievementRecord()` calls a service|Must be pure — no side effects|
+|Any producing feature skips `AchievementService` and writes `AchievementRecord` directly|All achievements flow through `addAchievement()` — no exceptions|
+|`AchievementService` calls any producing feature (Cups, Streak, etc.) for reads|All reads are self-contained from its own AchievementRecord collection|
+|Garment calls `ProgressionService`|Upward dependency|
+|`ProgressionService` reads `AchievementService` directly for data|ProgressionService only knows points — ScoringService handles the translation|
 |Any feature reads temporal preferences from `UserSettingsService`|Read from `UserCoreService` only|
 |Any feature calls `UserCoreService.getTemporalPreferences()` directly|Call `TemporalHelperService` — it owns that dependency|
-|Any feature subscribes to `Heartbeat` for boundary detection|Subscribe to `TemporalHelperService` events instead — boundary detection is centralized there|
-|Any feature publishes `WeekEndedEvent` or `DayEndedEvent`|These are published only by `TemporalHelperService`|
+|Any feature subscribes to `Heartbeat` for boundary detection|Subscribe to `TemporalHelperService` events instead|
+|Any feature publishes `WeekEndedEvent` or `DayEndedEvent`|Published only by `TemporalHelperService`|
 |`TemporalHelperService` imports any feature above it in the stack|Only calls `UserCoreService` and subscribes to `Heartbeat`|
 
 ---
@@ -385,7 +368,7 @@ Top-of-chain feature. Depends on Commitment and Performance via `UserCapabilityS
 
 **Before adding a direct call:** confirm the called feature is below the caller.
 
-**Before creating a new achievement-producing feature:** implement `Achievable` on its domain model. Publish an event carrying that model. `AchievementService` subscribes automatically — no registration needed.
+**Before creating a new achievement-producing feature:** construct an `AchievementRecord` in the service at the achievement moment. Call `AchievementService.addAchievement()` downward. Add one `AchievementSubtype` enum value and one `AppConfig` point entry. No changes to `AchievementService` needed.
 
 **Before modifying a locked feature:** treat as a breaking change. Review all consumers.
 

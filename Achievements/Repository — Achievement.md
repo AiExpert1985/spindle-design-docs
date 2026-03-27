@@ -2,7 +2,7 @@
 
 ---
 
-**Purpose:** storage for `AchievementRecord`. The unified achievement history. Called only by `AchievementService`.
+**Purpose:** storage for `AchievementRecord`. The single source of truth for all achievement history. Called only by `AchievementService`.
 
 ---
 
@@ -12,18 +12,24 @@
 abstract class AchievementRepository {
   Future<void> saveRecord(AchievementRecord record);
   Future<bool> existsForSource(String sourceId);
-  Future<List<AchievementRecord>> getAchievements(DateTime from, DateTime to, {AchievementType? type});
-  Stream<List<AchievementRecord>> watchRecentAchievements(DateTime from, DateTime to);
+  Future<List<AchievementRecord>> getAchievements(
+    DateTime from,
+    DateTime to, {
+    AchievementType? type,
+    AchievementSubtype? subtype,
+    String? definitionId,
+  });
+  Stream<List<AchievementRecord>> watchAchievements(DateTime from, DateTime to);
 }
 ```
 
 `saveRecord` — append-only. Never called for updates.
 
-`existsForSource(sourceId)` — checks whether a record already exists for this source model. Used as a defensive safety net before every write. Producing features (Cups, Rewards, Milestones) guarantee no duplicate events through their own idempotency — `existsForSource` is a secondary guard that prevents corruption if a duplicate somehow arrives despite those guarantees.
+`existsForSource(sourceId)` — idempotency safety net. Called before every write. Producing features guarantee no duplicate calls — this is a secondary defensive check.
 
-`getAchievements(from, to, type?)` — all achievement records within the date range, optionally filtered by type. Ordered by `createdAt` descending. Used by the achievements screen.
+`getAchievements(from, to, type?, subtype?, definitionId?)` — unified read. All parameters optional except the time window. Ordered by `createdAt` descending. Used for all reads — cups history, streak achievements, garment achievements, all of them.
 
-`watchRecentAchievements(from, to)` — live stream of achievements within the date range. Used by the achievements screen for live updates when a new achievement is earned during the session.
+`watchAchievements(from, to)` — live stream. Used by the achievements screen during a session.
 
 ---
 
@@ -41,6 +47,6 @@ Covered by existing security rule.
 
 - Called only by `AchievementService`
 - Append-only — no update or delete operations
-- Achievement records are permanent — never deleted, not even on commitment deletion
-- `existsForSource` called before every write as a defensive safety net
+- Records are permanent — never deleted for any reason
+- `existsForSource` called before every write
 - All reads use a time window — never fetch unbounded history

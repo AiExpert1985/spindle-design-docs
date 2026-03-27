@@ -1,115 +1,75 @@
-**File Name**: service_scoring **Feature**: Progression (internal) **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: service_scoring **Feature**: Progression (internal) **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
-**Purpose:** the translation layer between achievements and points. Subscribes to `AchievementEarnedEvent`, converts each achievement to a point value using `AppConfig`, and publishes `PointsAwardedEvent` for `ProgressionService` to consume. Internal to Progression — `ProgressionService` never reads from Achievements directly.
+**Purpose:** the translation layer between achievements and points. Subscribes to `AchievementEarnedEvent`, maps each `AchievementSubtype` to a point value via `AppConfig`, and publishes `PointsAwardedEvent` for `ProgressionService` to consume. Internal to Progression — never called by features outside.
 
 ---
 
 ## Design Decisions
 
-**Why ScoringService is separate from ProgressionService.** `ProgressionService` only knows about points and levels. `ScoringService` owns the knowledge of what each achievement is worth. Adding a new achievement type or changing point values only touches `ScoringService` and `AppConfig` — `ProgressionService` is untouched.
+**Why ScoringService is separate from ProgressionService.** `ProgressionService` only knows about points and levels. `ScoringService` owns the knowledge of what each achievement is worth. Changing point values only touches `AppConfig`. Adding a new achievement type only touches the lookup table here and one `AppConfig` entry. `ProgressionService` is untouched in both cases.
 
-**Why `lastBonusAwardedMonth` lives in `ScoringState`, not `ProgressionProfile`.** It is operational state for the scoring logic, not a description of the user's journey. `ProgressionProfile` describes what the user has achieved. `ScoringState` describes what the scoring mechanics last did. Keeping them separate means `ProgressionProfile` remains a clean domain model.
+**Why the lookup is `subtype → points`, not `type → points`.** Different achievements of the same type have different values — a diamond cup is worth more than a bronze cup. Subtype is the specific semantic label, so it is the right key for the point lookup. Type is for grouping and filtering, not scoring.
+
+**Why the bonus system was removed.** The original design had a separate bonus trigger system with `ScoringState` tracking last bonus month. This was complexity without clarity. Every achievement now has one fixed point value in `AppConfig`. If certain achievements should be worth more (e.g. diamond cup after a streak of bad weeks), that is expressed by designing the right point values — not by a separate bonus detection layer. The scoring system is one clean table.
 
 ---
 
 ## Events Subscribed
 
-### `AchievementEarnedEvent` → `_onAchievementEarned(event)`
+### `AchievementService.onAchievementEarned` → `_onAchievementEarned(event)`
 
 ```
-points = _lookupPoints(event.record.type, event.record.subtype)
-if points == 0: return   // unrecognised subtype — no points awarded
+points = _lookupPoints(event.record.subtype)
+if points == 0: return   // unrecognised subtype — no points awarded, logged as warning
 
 publish PointsAwardedEvent(
   points: points,
-  achievementType: event.record.type,
-  achievementSubtype: event.record.subtype,
-  earnedAt: event.record.earnedAt,
-  isBonus: false
+  subtype: event.record.subtype,
+  createdAt: event.record.createdAt,
 )
-
-if event.record.type == cup:
-  _evaluateAndPublishBonus(event.record)
 ```
 
 ---
 
-## Events Published (internal)
+## Events Published (internal to Progression)
 
 ```
 PointsAwardedEvent
   points: double
-  achievementType: AchievementType
-  achievementSubtype: String
-  earnedAt: DateTime
-  isBonus: bool
+  subtype: AchievementSubtype
+  createdAt: DateTime
 ```
 
-`isBonus: true` tells `ProgressionService` to also update `bonusPointsTotal`.
+Consumed only by `ProgressionService`. Never published externally.
 
 ---
 
-## Pure Functions
+## Lookup Table
 
-### `_lookupPoints(type, subtype)` → double
+### `_lookupPoints(subtype)` → double
 
-```
-cup + bronze    → AppConfig.cupPointsBronze
-cup + silver    → AppConfig.cupPointsSilver
-cup + gold      → AppConfig.cupPointsGold
-cup + diamond   → AppConfig.cupPointsDiamond
-streakMilestone → AppConfig.milestonePoints
-reward          → AppConfig.rewardPoints
-```
-
-Returns 0.0 for unrecognised subtypes — never throws.
-
----
-
-## Bonus Trigger Evaluation
-
-### `_evaluateAndPublishBonus(cupRecord)` → void
-
-Called only for cup achievements.
+Maps each `AchievementSubtype` to a point value from `AppConfig`.
 
 ```
-state = ScoringRepository.getState()
-if state != null and isSameMonth(state.lastBonusAwardedMonth, now):
-  return   // already awarded a bonus this month
-
-cupHistory = AchievementService.getCupsSince(thirtyDaysAgo)
-bonus = _checkBonusTriggers(cupRecord, cupHistory)
-if bonus == 0: return
-
-// update ScoringState
-state = state ?? ScoringState()
-state.lastBonusAwardedMonth = firstDayOfCurrentMonth()
-ScoringRepository.saveState(state)
-
-publish PointsAwardedEvent(
-  points: bonus,
-  achievementType: cup,
-  achievementSubtype: _bonusTriggerName(cupRecord, cupHistory),
-  earnedAt: now,
-  isBonus: true
-)
+bronzeCup        → AppConfig.pointsBronzeCup
+silverCup        → AppConfig.pointsSilverCup
+goldCup          → AppConfig.pointsGoldCup
+diamondCup       → AppConfig.pointsDiamondCup
+globalBestStreak → AppConfig.pointsGlobalBestStreak
+threeDay         → AppConfig.pointsThreeDay
+fiveDay          → AppConfig.pointsFiveDay
+sevenDay         → AppConfig.pointsSevenDay
+tenDay           → AppConfig.pointsTenDay
+fourteenDay      → AppConfig.pointsFourteenDay
+garmentCompleted → AppConfig.pointsGarmentCompleted
+periodicReward   → AppConfig.pointsPeriodicReward
 ```
 
-### `_checkBonusTriggers(cupRecord, cupHistory)` → double
+Returns 0.0 for unrecognised subtypes — never throws. Logs a warning when 0 is returned so gaps are visible during development.
 
-Evaluates triggers highest bonus first — only first match fires.
-
-|Priority|Trigger|Bonus|
-|---|---|---|
-|1|Diamond cup after a cupless week|`AppConfig.bonusPointsDiamondComeback`|
-|2|First diamond cup ever|`AppConfig.bonusPointsFirstDiamond`|
-|3|First cup ever earned|`AppConfig.bonusPointsFirstCup`|
-|4|Cup after 2+ cupless weeks (comeback)|`AppConfig.bonusPointsComeback`|
-|5|3 cups in 3 consecutive weeks|`AppConfig.bonusPointsThreeConsecutive`|
-
-Returns 0.0 if no trigger matches.
+**All point values are placeholders.** They will be carefully designed after launch based on real user earning rates, desired progression pace, and which achievements should feel most significant. Only `AppConfig` needs to change — this lookup table and `ProgressionService` are untouched.
 
 ---
 
@@ -117,16 +77,13 @@ Returns 0.0 if no trigger matches.
 
 - Internal to Progression — never called by features outside
 - All point values from `AppConfig` — never hardcoded
-- Unrecognised achievement subtypes award 0 points — never throws
-- Bonus evaluation only for cup achievements
-- One bonus per calendar month — enforced via `ScoringState.lastBonusAwardedMonth`
-- No dependency on `ProgressionService` — scoring state is fully self-contained
+- Unrecognised subtypes return 0 points and log a warning — never throw
+- No `ScoringState`, no bonus system — one clean subtype-to-points table
+- No dependency on `ProgressionService` — internal event is sufficient
 
 ---
 
 ## Dependencies
 
-- EventBus — subscribes to `AchievementEarnedEvent`; publishes `PointsAwardedEvent`
-- `ScoringRepository` — reads and writes `ScoringState`
-- `AchievementService.getCupsSince()` — bonus trigger evaluation
-- `AppConfig` — all point values and bonus trigger definitions
+- `AchievementService` — subscribes to `onAchievementEarned`
+- `AppConfig` — all point values

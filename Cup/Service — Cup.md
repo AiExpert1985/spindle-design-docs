@@ -2,7 +2,7 @@
 
 ---
 
-**Purpose:** evaluates weekly performance and awards cups. An independent feature — not internal to Achievements. Publishes `CupEarnedEvent` carrying a `WeeklyCup` which implements `Achievable`. `AchievementService` subscribes and calls `toAchievementRecord()`.
+**Purpose:** evaluates weekly performance and awards cups. An independent feature. When a cup is earned, constructs an `AchievementRecord` and calls `AchievementService.addAchievement()` directly — no event publishing needed for the achievement handoff.
 
 ---
 
@@ -19,25 +19,20 @@ if CupRepository.cupExistsForWeek(event.weekStart): return   // idempotent
 
 cup = WeeklyCup(weekStart: event.weekStart, cupLevel: level, weeklyScore: score)
 CupRepository.saveCup(cup)
-publish CupEarnedEvent(cup: cup)
+
+AchievementService.addAchievement(AchievementRecord(
+  type: AchievementType.cup,
+  subtype: _cupSubtype(level),   // bronzeCup | silverCup | goldCup | diamondCup
+  sourceId: cup.id,
+  definitionId: null,
+  createdAt: now,
+  updatedAt: now,
+))
 ```
 
 ### `backfillMissingCups()` — on app startup
 
-Runs once on startup to cover weeks where the device was inactive when `WeekEndedEvent` fired. Looks back `AppConfig.cupBackfillWeeks` (default: 8) weeks — consistent with the bonus trigger evaluation window in `ScoringService`. For each past week with no cup record, fetches score and runs the same logic silently. No `CupEarnedEvent` published for backfilled cups — they are historical records only.
-
-The 8-week lookback is bounded, satisfying the windowed fetch rule. It is long enough to catch any missed weeks from a device that was offline for a month.
-
----
-
-## Events Published
-
-```
-CupEarnedEvent
-  cup: WeeklyCup    // implements Achievable
-```
-
-Consumed by `AchievementService` which calls `cup.toAchievementRecord()`.
+Looks back `AppConfig.cupBackfillWeeks` (default: 8) weeks. For each past week with no cup record, fetches score and runs the same logic silently. No achievement recorded for backfilled cups — they are historical records only. Backfill is bounded to prevent unbounded reads.
 
 ---
 
@@ -45,7 +40,7 @@ Consumed by `AchievementService` which calls `cup.toAchievementRecord()`.
 
 ### `_determineCupLevel(score)` → CupLevel?
 
-Score is a percentage value (0–100) matching the return value of `PerformanceService.getOverallWeekScore()`.
+Score is a percentage value (0–100).
 
 ```
 if score >= AppConfig.cupThresholdDiamond: return diamond   // default: 95
@@ -55,29 +50,39 @@ if score >= AppConfig.cupThresholdBronze:  return bronze    // default: 60
 return null
 ```
 
-Thresholds are percentage values in `AppConfig` — consistent with the percentage scores returned by `PerformanceService`.
+### `_cupSubtype(level)` → AchievementSubtype
+
+```
+bronze  → AchievementSubtype.bronzeCup
+silver  → AchievementSubtype.silverCup
+gold    → AchievementSubtype.goldCup
+diamond → AchievementSubtype.diamondCup
+```
 
 ---
 
 ## Read Functions
 
-### `getAllCups()` → List<WeeklyCup>
+### `getAllCups(from, to)` → List<WeeklyCup>
 
-Ordered by weekStart descending.
+Ordered by weekStart descending. Used when cup detail is needed beyond what `AchievementService` provides.
 
 ### `getCupsSince(from)` → List<WeeklyCup>
 
-Returns cups earned since `from`. Called by `AchievementService.getCupsSince()` — `AchievementService` wraps this to provide a unified read interface across all achievement types. External callers use `AchievementService`, not `CupService` directly.
+Returns cups earned since `from`.
+
+### `cupExistsForWeek(weekStart)` → bool
+
+Internal idempotency check.
 
 ---
 
 ## Rules
 
-- Independent feature — not internal to Achievements
 - Cups based on raw `getOverallWeekScore()` — never accelerator-modified
 - Idempotent — one cup per week maximum
-- `WeeklyCup` implements `Achievable` — translation to `AchievementRecord` is the model's responsibility
-- Backfill limited to `AppConfig.cupBackfillWeeks` — never fetches all history
+- No achievement recorded for backfilled cups
+- Thresholds are percentage values in `AppConfig`
 
 ---
 
@@ -85,5 +90,6 @@ Returns cups earned since `from`. Called by `AchievementService.getCupsSince()` 
 
 - `TemporalHelperService` — subscribes to `onWeekEnded`
 - `PerformanceService.getOverallWeekScore()` — raw weekly score
+- `AchievementService.addAchievement()` — records the achievement
 - `CupRepository` — reads and writes `WeeklyCup`
 - `AppConfig` — cup threshold constants, `cupBackfillWeeks`
