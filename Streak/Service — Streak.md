@@ -1,4 +1,4 @@
-**File Name**: service_streak **Feature**: Streak **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: service_streak **Feature**: Streak **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -10,13 +10,13 @@
 
 ## Design Decisions
 
-**Why Streak is its own feature.** Streak data is consumed by multiple features for different purposes — Garment uses it for acceleration (via `AcceleratorService`), Achievements uses it for milestone detection. Keeping Streak as a standalone feature means each consumer subscribes to `StreakChangedEvent` or calls `getStreakRecord()` without any of them depending on each other.
-
 **Why a signed integer.** A single signed integer carries both directions. Positive = consecutive kept days, negative = consecutive missed days, zero = neutral. Eliminates two separate counters and makes transition rules trivially simple.
 
 **Why zero is a neutral state.** A positive streak that breaks goes to zero before going negative on the next miss. One missed day after a long kept streak is not immediately a bad streak — the pattern of missing is what matters.
 
 **Why publish only above `minStreakDays` threshold.** Single-day changes are noise. Below the threshold the record updates silently — no event, no downstream reaction.
+
+**Why watch `InstanceUpdatedEvent` for closed windows, not `PerformanceUpdatedEvent`.** A streak update is triggered by a window closing — that is a lifecycle event on the instance, not a performance calculation event. `InstanceUpdatedEvent` with `status: closed` is the correct signal. The `livePerformance` value needed for streak classification is carried on the instance directly — no separate performance event needed.
 
 ---
 
@@ -31,11 +31,11 @@ minStreakDays: 3
 
 ## Events Subscribed
 
-### `PerformanceUpdatedEvent` where `isClosed: true` → `_onWindowClosed(event)`
+### `InstanceUpdatedEvent` where `snapshot.status == closed` → `_onWindowClosed(event)`
 
 ```
 record = _getOrCreateRecord(event.definitionId)
-record = _updateStreak(record, event.livePerformance)
+record = _updateStreak(record, event.snapshot.livePerformance)
 saveRecord(record)
 
 if abs(record.currentStreak) >= AppConfig.minStreakDays:
@@ -99,7 +99,7 @@ One-time read. Called by `AcceleratorService` (Garment) and `AchievementService`
 
 ### `watchStreakRecord(definitionId)` → Stream<StreakRecord?>
 
-Used by the commitment detail screen and `Component___Streak_UI`.
+Used by the commitment detail screen and `component_streak_ui`.
 
 ### `getBestStreakOverall()` → int
 
@@ -118,7 +118,7 @@ Returns the highest `bestStreak` across all records. Used by the Your Record scr
 
 ## Dependencies
 
-- EventBus — subscribes to `PerformanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`; publishes `StreakChangedEvent`, `GlobalBestStreakEvent`
+- `CommitmentService` — subscribes to `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`
 - `StreakRepository` — reads and writes `StreakRecord`
 - `PerformanceService.isWindowSuccess()` — window classification
 - `AppConfig.minStreakDays`

@@ -1,4 +1,4 @@
-**File Name**: component_performance_calendar **Feature**: Performance **Phase**: 2 **Created**: 15-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: component_performance_calendar **Feature**: Performance **Phase**: 2 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -21,9 +21,9 @@ Mon   Tue   Wed   Thu   Fri   Sat   Sun
 - Bar height proportional to score
 - Future days and days with no commitments: grey dash `—`
 - Tap any bar → tooltip showing date and score
-- Today's bar updates live as the user logs
+- Today's bar updates when `PerformanceUpdatedEvent` fires — provider rebuilds and re-fetches today's score
 
-Expected placement: Dashboard, below the overall score summary. Not designed in detail until the Dashboard is ready.
+Expected placement: Dashboard, below the overall score summary.
 
 ---
 
@@ -45,7 +45,7 @@ Mon   Tue   Wed   Thu   Fri   Sat   Sun
 - Tap any dot → tooltip showing date and score
 - Fetches one month at a time — never preloads all history
 
-Expected placement: Your Record screen, performance history section. Not designed in detail until Your Record is ready.
+Expected placement: Your Record screen, performance history section.
 
 ---
 
@@ -74,7 +74,7 @@ Expected placement: Your Record screen, performance history section. Not designe
 ## Shared Behavior
 
 - Tap any shape → tooltip showing date and score
-- Today's entry updates live via Riverpod
+- Today's entry updates when `PerformanceUpdatedEvent` fires — provider rebuilds, re-fetches today's score via `getDayScore(today)`
 - Past days are static — fetched once, not streamed
 - Frozen days shown as neutral — not counted against the user
 
@@ -82,16 +82,17 @@ Expected placement: Your Record screen, performance history section. Not designe
 
 ## Data Sources
 
+The component calls `getPerformanceForPeriod(from, to, definitionId?)` once per visible period. Per-day scores are derived from the returned instance data — not fetched with one call per day.
+
 |Data|Source|
 |---|---|
-|Daily scores for a period|`PerformanceService.getDayScore(date)` per day — or `getPerformanceForPeriod(from, to)` for a range|
-|Today's score live update|`PerformanceService.getDayScore(today)` — stream|
-|Per-commitment mode|`PerformanceService.getPerformanceForPeriod(from, to, definitionId)`|
+|Scores for a period|`PerformanceService.getPerformanceForPeriod(from, to, definitionId?)` — one-time read per period|
+|Today's score live update|`PerformanceService.getDayScore(today)` — re-fetched on `PerformanceUpdatedEvent`|
 
-The component accepts an optional `definitionId`. When provided, it shows only that commitment's daily scores rather than the overall day score — same visual, same interaction, different data scope.
+The component accepts an optional `definitionId`. When provided, it shows only that commitment's daily scores — same visual, same interaction, different data scope.
 
 ---
 
 ## What Is Not Designed Yet
 
-The exact data fetching strategy, the provider structure, and the integration with the Dashboard and Your Record screens are not defined here. Those decisions depend on both placements being designed. This doc will be filled in when those are ready.
+The exact provider structure and the integration with the Dashboard and Your Record screens are not defined here. Those decisions depend on both placements being designed. This doc will be filled in when those screens are ready.

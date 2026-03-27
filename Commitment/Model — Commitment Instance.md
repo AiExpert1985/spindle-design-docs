@@ -1,4 +1,4 @@
-**File Name**: commitmentinstance **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 21-Mar-2026
+**File Name**: model_commitment_instance **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -20,11 +20,18 @@ All instances are daily regardless of recurrence type:
 
 This uniformity makes performance calculation simple — every instance is treated identically regardless of how the commitment was configured.
 
-There is always exactly one pending instance per commitment. When a pending instance closes, its successor is generated immediately in the same operation. This keeps the invariant clean and avoids complexity from managing multiple simultaneous pending instances.
-
-The instance is the single operational record for any commitment occurrence. It carries the commitment's current state, name, and notification config so features above it never need to look up the definition.
+There is always exactly one pending instance per commitment. When a pending instance closes, its successor is generated immediately in the same operation.
 
 `livePerformance` is the one field owned by an external feature (Performance). It changes independently of structural instance changes and does not trigger `InstanceUpdatedEvent` — it has its own signal (`PerformanceUpdatedEvent`).
+
+---
+
+## UI vs Upper Features
+
+- **UI reads the definition** — to show the user what they configured: name, type, target, recurrence, window.
+- **Upper features work with instances** — Performance, Notifications, Streaks, Garment all react to what actually happened. They read instances, never the definition.
+
+The instance carries a snapshot of all operational fields from the definition at the time of creation, so upper features always have what they need without a definition lookup.
 
 ---
 
@@ -35,8 +42,6 @@ An instance has two distinct windows serving different purposes.
 **RegenerationWindow** — the accountability period. Defines when this occurrence begins and ends. Used to calculate the next window start when the instance self-replicates. Immutable after creation.
 
 **ActivityWindow** — the user's preferred time-of-day slot. Used for notification timing: the warning fires at 3/4 of the duration (if enabled), the window-close notification fires at the end. No effect on scoring or the accountability period.
-
-Keeping these as separate named classes makes their distinct purposes immediately clear from the field names alone.
 
 ---
 
@@ -50,11 +55,11 @@ pending → closed
 
 **closed** — the window has ended. The instance is a permanent record.
 
-One-way by design. A closed instance is a historical fact — making it reversible would undermine the integrity of records other features (scores, streaks, calendar) rely on.
+One-way by design. A closed instance is a historical fact — making it reversible would undermine the integrity of records other features rely on.
 
-When status transitions from `pending` to `closed`, CommitmentIdentityService publishes `InstanceUpdatedEvent`. Features that react to window close — PerformanceService, NotificationSchedulerService — subscribe to this event and check `instance.status == closed` to identify the transition.
+When status transitions from `pending` to `closed`, `CommitmentIdentityService` publishes `InstanceUpdatedEvent`. Features that react to window close subscribe to this event and check `instance.status == closed`.
 
-Closed instances are immutable except for `livePerformance` — which may update if a grace-period log arrives after window close.
+Closed instances are immutable except for `livePerformance`.
 
 ---
 
@@ -62,9 +67,7 @@ Closed instances are immutable except for `livePerformance` — which may update
 
 Closed instances are permanent — removed only when the commitment is permanently deleted.
 
-Pending instances are transient — there is always exactly one, and it is replaced when the commitment changes or when its window closes and a successor is generated.
-
-Closed = history. Pending = the current active occurrence.
+Pending instances are transient — there is always exactly one, and it is replaced when the commitment changes or when its window closes and a successor is generated. On soft delete, the pending instance is cleared — closed instances are preserved. The pending instance is recreated when the commitment is restored to active.
 
 ---
 
@@ -93,28 +96,24 @@ CommitmentInstance
 RegenerationWindow
   windowStart: DateTime
   windowEnd: DateTime
-```
 
-```
 ActivityWindow
   startMinutes: int
   durationMinutes: int
   warningEnabled: bool
 ```
 
----
-
 - **id** — unique identifier. Immutable.
 - **definitionId** — the commitment this instance belongs to.
-- **name** — the commitment's name. Carried here so notifications and logs can display it without a definition lookup. Example: "Morning Run".
+- **name** — the commitment's name. Carried here so notifications and upper features can display it without a definition lookup.
 - **commitmentType** — do or avoid. Carried from the definition so performance calculation never needs the definition.
-- **recurrence** — used to calculate the next window start when this instance spawns its successor. For SpecificWeekDays, the sealed class carries the configured days directly.
+- **recurrence** — used to calculate the next window start when this instance spawns its successor.
 - **regenerationWindow** — the accountability period. `windowStart` and `windowEnd` are immutable after creation.
-- **activityWindow** — the user's preferred time-of-day slot and notification settings. `warningEnabled` lives here because it governs notification behaviour for this window specifically. The default spans the full day (from `dayBoundaryHour` to the next `dayBoundaryHour`), meaning no time restriction. The user narrows it only when they want to force a specific slot — for example, morning exercise from 08:00–10:00. The activity window governs notification timing only; the instance always lives its full `regenerationWindow` duration regardless.
-- **currentTarget** — the target in effect for this window. Updated when the definition target changes so performance is always calculated against the correct value.
-- **commitmentState** — the commitment's current lifecycle state. Updated by CommitmentIdentityService whenever the commitment changes. Features read this instead of querying the definition. Example: ActivityService checks `instance.commitmentState == active` before accepting a log.
+- **activityWindow** — the user's preferred time-of-day slot and notification settings. Governs notification timing only — the instance always lives its full `regenerationWindow` duration regardless.
+- **currentTarget** — the target in effect for this window. Reflects the definition's target at creation time. Updated if the definition target changes, so performance is always calculated against the correct value.
+- **commitmentState** — the commitment's current lifecycle state. Updated by `CommitmentIdentityService` whenever the commitment changes. Upper features read this instead of querying the definition.
 - **status** — pending or closed. One-way transition. Change from pending to closed triggers `InstanceUpdatedEvent`.
-- **livePerformance** — how much of the target was achieved, as a percentage. Maintained by PerformanceService. Do: can exceed 100%. Avoid: capped at 100%. Does not trigger `InstanceUpdatedEvent` when it changes.
+- **livePerformance** — how much of the target was achieved, as a percentage. Maintained by `PerformanceService`. Do: can exceed 100%. Avoid: capped at 100%. Does not trigger `InstanceUpdatedEvent` when it changes.
 - **createdAt** — immutable.
 - **updatedAt** — updated on every structural write. Not updated when only `livePerformance` changes.
 
@@ -122,10 +121,12 @@ ActivityWindow
 
 ## Rules
 
-- CommitmentIdentityService is the only service that creates or deletes instances
-- PerformanceService is the only service that writes `livePerformance`
+- `CommitmentIdentityService` is the only service that creates or deletes instances
+- `PerformanceService` is the only service that writes `livePerformance`
 - `regenerationWindow`, `recurrence`, `commitmentType`, `createdAt` are immutable after creation
 - `livePerformance` changes do not trigger `InstanceUpdatedEvent` — signalled by `PerformanceUpdatedEvent`
 - Exactly one pending instance per commitment at all times
-- `livePerformance` is initialized to `0.0` on creation. PerformanceService receives `InstanceCreatedEvent` and immediately recalculates from logged activity — the `0.0` is a valid ground state before any activity exists, not a permanent value
+- `livePerformance` is initialized to `0.0` on creation — valid ground state before any activity
 - Status change from pending to closed always triggers `InstanceUpdatedEvent`
+- On soft delete, the pending instance is cleared — closed instances are preserved
+- Upper features read instances — never the definition

@@ -79,6 +79,8 @@ This is the _Observer Pattern_. It is the only mechanism by which lower features
 
 **Events are for reactions, not queries.** If you need data, use Rule A. Events are only for broadcasting that something changed.
 
+**Each feature owns its own event streams.** There is no centralized event bus. A feature exposes its events as part of its service interface. Upper features subscribe by importing the lower feature's service — which the stack already permits. This is intentional: a centralized bus would allow any feature to subscribe to any other feature's events regardless of stack position, making the one-way rule enforceable only by discipline. With per-feature streams, the rule is enforced structurally — a lower feature cannot import an upper feature, so it cannot subscribe to its events even if it wanted to.
+
 ---
 
 ## 5. Why Event-Driven
@@ -121,15 +123,17 @@ _Execution order is not guaranteed._ If Subscriber B needs the result of Subscri
 
 ## 6. Shared Low-Level Services
 
-Some capabilities are needed by many features — time signals, notifications, error handling, logging. Rather than letting each feature implement its own version, each is built as a single feature with an abstract interface. Every feature that needs it calls the interface downward. The implementation behind the interface is swappable without touching any caller.
+Some capabilities are needed by many features — time signals, time interpretation, notifications, error handling, logging. Rather than letting each feature implement its own version, each is built as a single feature with an abstract interface. Every feature that needs it calls the interface downward. The implementation behind the interface is swappable without touching any caller.
 
 This is the _Separated Interface_ pattern: define the contract in one place, implement it elsewhere, callers depend only on the contract. It keeps features decoupled from platform details and makes future changes — a new notification backend, a remote logging service — a matter of swapping one implementation.
 
-**Heartbeat** fires periodic time signals — a long-interval tick and a short-interval tick — carrying only a raw timestamp. Features that need time-based behavior subscribe to these streams. Heartbeat has no knowledge of what any subscriber will do with the timestamp. It is separated from time interpretation (`TemporalHelper`) by design: what a timestamp means culturally and contextually depends on user preferences, not on the pulse itself. See `heartbeat`.
+**Heartbeat** fires periodic time signals — a long-interval tick and a short-interval tick — carrying only a raw timestamp. Features that need time-based behavior subscribe to these streams. Heartbeat has no knowledge of what any subscriber will do with the timestamp. See `heartbeat`.
 
-**Notifications** accept a payload from any feature and handle all delivery details. Features never call the OS notification API directly. This means the delivery mechanism — local notifications, push, in-app banners — can change without touching any feature. See `notification`.
+**TemporalHelper** answers semantic questions about time using the current user's preferences — is this a day boundary? is this within waking hours? It sits above UserCore and owns the `UserCoreService` dependency internally. Callers pass only a timestamp and get a direct answer. No feature reads temporal preferences directly — all time interpretation goes through `TemporalHelperService`. See `service_temporal_helper`.
 
-**Error Handling** provides `Result<T>` as the standard return type for any function that can fail, and `AppError` as the structured failure type. Every service function that can fail returns `Result<T>` — no raw exceptions cross feature boundaries. A global catch in `main.dart` handles anything that escapes. See `error_handling`.
+**Notifications** accept a payload from any feature and handle all delivery details. Features never call the OS notification API directly. The delivery mechanism — local notifications, push, in-app banners — can change without touching any feature. See `notification_service`.
+
+**Error Handling** provides `Result<T>` as the standard return type for any function that can fail, and `AppError` as the structured failure type. Every service function that can fail returns `Result<T>` — no raw exceptions cross feature boundaries. See `error_handling`.
 
 **Logger** is the single entry point for all diagnostic output — debug, info, warning, error. Nothing writes to the console or any storage directly. The Phase 1 implementation prints to console. Future implementations add persistent or remote output by swapping the implementation, with zero changes to any calling feature. See `logger`.
 
@@ -167,6 +171,7 @@ The presentation layer observes state — it never calculates, decides, or holds
 - Services within the same feature may call each other directly
 - Services subscribe to events only from features below them in the chain
 - All constants and thresholds come from configuration — never hardcoded
+- All functions that can fail return `Result<T>` — no raw exceptions
 
 ---
 

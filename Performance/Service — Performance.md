@@ -1,25 +1,27 @@
-**File Name**: performanceservice **Feature**: Performance **Phase**: 1 **Created**: 20-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: service_performance **Feature**: Performance **Phase**: 1 **Created**: 20-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
-**Purpose:** calculates and maintains `livePerformance` on commitment instances. Provides performance query functions to other features. No stored aggregates — all scores calculated on demand.
+**Purpose:** calculates and maintains `livePerformance` on commitment instances. Provides performance query functions to other features. No stored aggregates — all scores calculated on demand from instances and logs.
 
 ---
 
-## Two Triggers
+## Two Recalculation Triggers
 
-PerformanceService recalculates `livePerformance` in exactly two situations:
+`PerformanceService` recalculates `livePerformance` in exactly two situations:
 
-1. **`InstanceCreatedEvent`** — a new or recreated instance exists. Initialise `livePerformance` from any logs already recorded for that commitment on that date.
-2. **`ActivityEvent`** — the user logged activity. Recalculate for the matching instance.
+1. **`InstanceCreatedEvent`** — a new or recreated instance exists. Reads any logs already recorded for that commitment on that date and calculates the initial `livePerformance`. This matters when an instance is recreated after a definition change — existing logs are not lost, and performance is immediately correct on recreation.
+    
+2. **`ActivityEvent`** — the user logged, edited, or deleted activity. Recalculates for the matching instance. The reaction is identical regardless of event type — always recalculate from the current total.
+    
 
-Everything that causes instance recreation — target changes, recurrence changes, state changes — is handled by CommitmentIdentityService, which publishes `InstanceCreatedEvent` after each recreation. PerformanceService never watches CommitmentEvent or definition changes directly.
+Everything that causes instance recreation — target changes, recurrence changes, state changes — is handled by `CommitmentIdentityService`, which publishes `InstanceCreatedEvent` after each recreation. `PerformanceService` never watches `CommitmentEvent` or definition changes directly.
 
 ---
 
 ## Writing livePerformance
 
-After calculating, PerformanceService calls `CommitmentIdentityService.updateLivePerformance(instanceId, value)` directly. This is a valid downward call — Performance depends on Commitment, which is below it in the feature chain. See `feature_dependency_chain` for the full ordering.
+After calculating, `PerformanceService` calls `CommitmentIdentityService.updateLivePerformance(instanceId, value)` directly. This is a valid downward call — Performance depends on Commitment, which is below it in the feature chain.
 
 `livePerformance` changes do not trigger `InstanceUpdatedEvent`. They are signalled separately via `PerformanceUpdatedEvent` so features that care about performance results subscribe to the right event without receiving noise from structural instance changes.
 
@@ -33,13 +35,13 @@ After calculating, PerformanceService calls `CommitmentIdentityService.updateLiv
 livePerformance = (totalLogged / target.value) × 100
 ```
 
-No upper cap. Logging 150% records 150% — preserves real data and signals when a target is too easy. For day-level aggregates, individual contributions are capped at 100 before averaging.
+No upper cap — logging 150% records 150%. This preserves real data and signals when a target is too easy. Averages across periods are straight averages of raw `livePerformance` values.
 
-A done/not-done commitment uses target = 1. Logging 1 = 100%.
+A done/not-done commitment uses `target = 1`. Logging 1 = 100%.
 
 ### Avoid Commitment
 
-Avoid commitments need a different approach from Do commitments. A Do commitment measures progress — more is better, the formula is linear. An Avoid commitment measures restraint — going over is failure, and going twice as far over should feel meaningfully worse than going slightly over.
+Avoid commitments measure restraint — going over is failure, and going twice as far over should feel meaningfully worse than going slightly over.
 
 **Rejected alternatives:**
 
@@ -51,7 +53,7 @@ Pure exponential `(target / logged) ^ (logged / target)` — degrades too aggres
 
 **Chosen: soft exponential with configurable base.**
 
-Continuous degradation with tunable steepness. Base 0.5 produces clean halving — every doubling of the excess halves the score. If the penalty proves too aggressive in real usage, raise the base toward 1.0 to soften it without touching the formula.
+Continuous degradation with tunable steepness. Base 0.5 produces clean halving — every doubling of excess halves the score. If the penalty proves too aggressive in real usage, raise the base toward 1.0 to soften it without touching the formula.
 
 ```
 target.value == 0 and totalLogged == 0  →  100%   (stayed clean)
@@ -73,7 +75,7 @@ target.value > 0 and totalLogged > target.value   →
 |3|6|1|50% — doubled|
 |3|9|2|25% — tripled|
 
-`livePerformance` stored as raw double — never rounded. Rounding is a display concern. The score drives visual representations (garment, arc, cup level) where the exact number is rarely shown directly.
+`livePerformance` stored as raw double — never rounded. Rounding is a display concern.
 
 ---
 
@@ -81,7 +83,7 @@ target.value > 0 and totalLogged > target.value   →
 
 ### `InstanceCreatedEvent` → `_onInstanceCreated(event)`
 
-New or recreated instance. Reads total logged for this commitment on this date. Calculates `livePerformance`. Calls `updateLivePerformance()`. Publishes `PerformanceUpdatedEvent`.
+New or recreated instance. Reads total logged for this commitment on this date via `ActivityService.getTotalLoggedForCommitmentOnDate()`. Calculates `livePerformance`. Calls `updateLivePerformance()`. Publishes `PerformanceUpdatedEvent`.
 
 Fires for every instance generation — initial creation and every recreation after any definition change.
 
@@ -89,11 +91,7 @@ Fires for every instance generation — initial creation and every recreation af
 
 A log was created, edited, or deleted. Finds the matching instance via `CommitmentIdentityService.getInstanceForCommitmentOnDate(definitionId, loggedAt)`. Reads total logged. Recalculates. Calls `updateLivePerformance()`. Publishes `PerformanceUpdatedEvent`.
 
-The reaction is identical regardless of event type — PerformanceService always recalculates from the current total. It does not need to know whether a log was added, changed, or removed.
-
-### `InstanceUpdatedEvent` → `_onInstanceUpdated(event)`
-
-Checks `instance.status`. If `closed` — publishes `PerformanceUpdatedEvent(isClosed: true)` so downstream features react to the final result. No recalculation needed — `livePerformance` is already correct.
+The reaction is identical regardless of event type — `PerformanceService` always recalculates from the current total. It does not need to know whether a log was added, changed, or removed.
 
 ---
 
@@ -105,12 +103,9 @@ PerformanceUpdatedEvent
   definitionId: String
   windowStart: DateTime
   livePerformance: double
-  isClosed: bool
 ```
 
-Published after every `livePerformance` change and when a window closes. `isClosed: true` signals the final result.
-
-Consumed by: Rewards (streak evaluation, `isClosed: true` only), Garment (every event), Encouragement (post-window feedback, `isClosed: true` only).
+Published after every `livePerformance` change. Features that need to react to a closed window watch `InstanceUpdatedEvent` for `status: closed` directly — they do not need a separate closed signal from Performance.
 
 ---
 
@@ -122,31 +117,29 @@ Weekly scores are calculated on demand — no stored aggregate. Features needing
 
 Core formula. Never called by other features.
 
-### `getPerformanceForPeriod(from, to, definitionId?)`
+### `getPerformanceForPeriod(from, to, definitionId?) → double`
 
-Universal reader. Fetches instances via `CommitmentIdentityService.getInstances(from, to, definitionId?)`. Returns average `livePerformance`. For day-level aggregates without `definitionId`, caps each instance at 100 before averaging.
+Universal reader. Fetches instances via `CommitmentIdentityService.getInstances(from, to, definitionId?)`. Returns the straight average of `livePerformance` across all returned instances. No cap applied — raw values averaged as-is.
 
-### `getDayScore(date)`
+### `getDayScore(date) → double`
 
 `getPerformanceForPeriod(dayStart, dayEnd)` — performance calendar, day celebration, Your Record.
 
-### `getCommitmentWeekScore(definitionId, weekStart)`
+### `getCommitmentWeekScore(definitionId, weekStart) → double`
 
 `getPerformanceForPeriod(weekStart, weekEnd, definitionId)` — commitment detail weekly view.
 
-### `getOverallWeekScore(weekStart)`
+### `getOverallWeekScore(weekStart) → double`
 
 `getPerformanceForPeriod(weekStart, weekEnd)` — weekly cup evaluation, progression gating, weekly summary.
 
-### `isWindowSuccess(livePerformance)` — pure function
+### `isWindowSuccess(livePerformance) → bool`
 
 ```
 return livePerformance >= AppConfig.successThreshold
 ```
 
-The single definition of what counts as a kept window. Any feature that needs to classify a window result as success or failure calls this function. Never reimplemented elsewhere.
-
-Used by: `StreakService` (to update streak counts), `GarmentDeltaCalculator` (receives `isSuccess` as a parameter from the caller). If `successThreshold` ever becomes per-commitment, only this function changes — all callers are unaffected.
+The single definition of what counts as a kept window. Any feature that needs to classify a window result as success or failure calls this function. Never reimplemented elsewhere. If `successThreshold` ever becomes per-commitment, only this function changes — all callers are unaffected.
 
 ---
 
@@ -154,16 +147,22 @@ Used by: `StreakService` (to update streak counts), `GarmentDeltaCalculator` (re
 
 - Two recalculation triggers only: `InstanceCreatedEvent` and `ActivityEvent`
 - Writes `livePerformance` via `CommitmentIdentityService.updateLivePerformance()` — a valid downward call
-- Never subscribes to CommitmentEvent or any event from a feature above Performance
+- Never subscribes to `CommitmentEvent` or any event from a feature above Performance
 - Recalculates only the affected instance per event — no bulk recalculation
-- No stored weekly aggregates — on demand only
+- No stored aggregates — all scores calculated on demand
 - Instance status is never checked for recalculation — `livePerformance` updated regardless of pending or closed
 
 ---
 
 ## Dependencies
 
-- EventBus — subscribes to `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `ActivityEvent`; publishes `PerformanceUpdatedEvent`
-- CommitmentIdentityService — updateLivePerformance(), getInstanceForCommitmentOnDate(), getInstances()
-- ActivityService — getTotalLoggedForCommitmentOnDate()
-- AppConfig — successThreshold (inactive in Phase 1)
+- `CommitmentService` — subscribes to `InstanceCreatedEvent`
+- `ActivityService` — subscribes to `ActivityEvent`; calls `getTotalLoggedForCommitmentOnDate()`
+- `CommitmentIdentityService` — `updateLivePerformance()`, `getInstanceForCommitmentOnDate()`, `getInstances()`
+- `AppConfig` — `successThreshold` (inactive in Phase 1), `avoidPenaltyBase`
+
+---
+
+## Later Improvements
+
+**Performance caching.** As the app's history grows, `getPerformanceForPeriod` for a full month calendar fetches potentially hundreds of instances. A lightweight cache keyed by period and `definitionId` — invalidated on `PerformanceUpdatedEvent` — would eliminate redundant fetches without changing the public interface.

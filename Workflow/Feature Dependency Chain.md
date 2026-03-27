@@ -20,7 +20,6 @@ Lower features never know upper features exist. A lower feature publishes events
 
 Not features. No lifecycle, no state, no events. Static utility classes available to any layer above Domain.
 
-- **TemporalHelper** — answers semantic time questions from a timestamp and user preferences. See `temporal_helper`.
 - **TickGuard** — idempotency utility for tick subscribers that run logic without consuming a record. See `tick_guard`.
 - **Achievable** — interface implemented by domain models that participate in the achievement system.
 - **AchievementRecord**, **AchievementType** — shared domain types used by the achievement system.
@@ -36,6 +35,8 @@ Not features. No lifecycle, no state, no events. Static utility classes availabl
 └─────────────────────────────────────────────────────────┘
       ↓
 UserCore              (UserCoreProfile, preferences, tier — read by any feature)
+      ↓
+TemporalHelper        (answers time questions using user preferences)
       ↓
 Notification Scheduling
   (watches Commitment instances, watches Heartbeat, fires via NotificationService)
@@ -79,6 +80,8 @@ UserSettings          (writes UserCoreProfile, capability checks,
 ## Key Design Principles
 
 **Base features have no domain knowledge.** Heartbeat, Logger, and NotificationService provide raw capabilities. They never import, subscribe to, or call any feature above them. See `architecture_rules` §3.
+
+**TemporalHelper centralizes time interpretation.** Any feature that needs to know whether a timestamp is a day boundary, week boundary, or within waking hours calls `TemporalHelperService`. It owns the `UserCoreService` dependency internally — no feature reads temporal preferences directly.
 
 **UserCore is the preference foundation.** Any feature that needs user preferences or tier reads from `UserCoreService`. Only `UserSettingsService` writes to it.
 
@@ -148,11 +151,21 @@ No events published. No events subscribed. Pure read-only interface. See `servic
 
 ---
 
+### TemporalHelper
+
+**Public functions (TemporalHelperService):** `isDayBoundary(timestamp)`, `isWeekBoundary(timestamp)`, `isRestDay(timestamp)`, `isWakingHours(timestamp)`, `currentDayStart(timestamp)`, `currentWeekStart(timestamp)`, `previousWeekStart(timestamp)`
+
+No events published. No events subscribed. Caches preferences internally, refreshes via `UserCoreService.watchProfile()`. See `service_temporal_helper`.
+
+**Calls directly:** `UserCoreService.getTemporalPreferences()`, `UserCoreService.watchProfile()`
+
+---
+
 ### Notification Scheduling
 
 **Subscribes to:** instance change events (Commitment), `ShortIntervalTick` (Heartbeat)
 
-**Calls directly:** `NotificationService.push()`, `TemporalHelper` (Domain utility)
+**Calls directly:** `NotificationService.push()`, `TemporalHelperService` (for warning time formatting)
 
 No events published. No public read functions — internal only. See `service_notification_scheduling`.
 
@@ -160,11 +173,11 @@ No events published. No public read functions — internal only. See `service_no
 
 ### Commitment ✓ LOCKED
 
-**Publishes (public):** `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`, `WeekEndedEvent`, `WeekStartedEvent`
+**Publishes (public):** `InstanceCreatedEvent(instanceId, definitionId, name, windowStart)`, `InstanceUpdatedEvent(instanceId, definitionId, windowStart, snapshot)`, `InstancePermanentlyDeletedEvent(definitionId)`, `WeekEndedEvent(weekStart)`, `WeekStartedEvent(weekStart)`
 
 **Publishes (internal only):** `CommitmentEvent` — consumed only by `CommitmentIdentityService`
 
-**Public functions (CommitmentService):** `getDefinition()`, `watchActiveCommitments()`, `watchFrozenCommitments()`, `watchDeletedCommitments()`, `watchCompletedCommitments()`, `getStateTransitionLog()`, `getPortfolioSize()`, `getActiveCount()`, `getRecentlyCreated()`
+**Public functions (CommitmentService):** `getDefinition()`, `watchActiveCommitments()`, `watchFrozenCommitments()`, `watchDeletedCommitments()`, `watchCompletedCommitments()`, `getStateTransitionLog()`, `getPortfolioSize()`, `getActiveCount()`, `getRecentlyCreated()`, `getCommitmentCountsByState()`
 
 **Public functions (CommitmentIdentityService):** `getInstances()`, `watchInstancesForDay()`, `getCurrentInstance()`, `getInstanceForCommitmentOnDate()`, `getInstancesForDay()`, `getInstancesForWeek()`, `updateLivePerformance()`
 
@@ -182,7 +195,7 @@ No events published. No public read functions — internal only. See `service_no
 
 ### Performance ✓ LOCKED
 
-**Publishes:** `PerformanceUpdatedEvent(instanceId, definitionId, windowStart, livePerformance, isClosed)`
+**Publishes:** `PerformanceUpdatedEvent(instanceId, definitionId, windowStart, livePerformance)`
 
 **Public functions:** `getPerformanceForPeriod()`, `getDayScore()`, `getCommitmentWeekScore()`, `getOverallWeekScore()`, `isWindowSuccess(livePerformance)`
 
@@ -198,7 +211,7 @@ No events published. No public read functions — internal only. See `service_no
 
 **Public functions:** `getStreakRecord(definitionId)`, `watchStreakRecord(definitionId)`, `getBestStreakOverall()`
 
-**Subscribes to:** `PerformanceUpdatedEvent` (Performance), `InstancePermanentlyDeletedEvent` (Commitment)
+**Subscribes to:** `InstanceUpdatedEvent` where `status: closed` (Commitment), `InstancePermanentlyDeletedEvent` (Commitment)
 
 **Calls directly:** `PerformanceService.isWindowSuccess()`
 
@@ -260,7 +273,7 @@ No events subscribed. No events published. Pure computation on demand.
 
 **Public functions:** `watchGarmentProfile()`, `getWeeklyProgress()`, `getLiveWeekDelta()`
 
-**Subscribes to:** `InstanceCreatedEvent` (Commitment), `PerformanceUpdatedEvent` where `isClosed: true` (Performance), `InstancePermanentlyDeletedEvent` (Commitment), `WeekEndedEvent` (Commitment)
+**Subscribes to:** `InstanceCreatedEvent` (Commitment), `InstanceUpdatedEvent` where `status: closed` (Commitment), `InstancePermanentlyDeletedEvent` (Commitment), `WeekEndedEvent` (Commitment)
 
 **Calls directly:** `CommitmentService.getDefinition()`, `StreakService.getStreakRecord()` (via AcceleratorService)
 
@@ -294,7 +307,7 @@ No events subscribed. No events published. Pure computation on demand.
 
 ### Encouragement
 
-**Subscribes to:** `ActivityEvent` (Activity), `PerformanceUpdatedEvent` where `isClosed: true` (Performance), `AchievementEarnedEvent` (Achievements), `LevelReachedEvent` (Progression), `LongIntervalTick` (Heartbeat)
+**Subscribes to:** `ActivityEvent` (Activity), `InstanceUpdatedEvent` where `status: closed` (Commitment), `AchievementEarnedEvent` (Achievements), `LevelReachedEvent` (Progression), `LongIntervalTick` (Heartbeat)
 
 **Calls directly:** `PerformanceService.getDayScore()`, `CommitmentIdentityService.getInstancesForDay()`, `AnalyticsService.computeDayFacts()`, `UserCoreService.getProfile()`, `UserSettingsService.recordEncouragementSent()`
 
@@ -344,6 +357,8 @@ Top-of-chain feature. Depends on Commitment and Performance via `UserCapabilityS
 |Any feature implements `Achievable` on a service|Achievable belongs on domain models only|
 |`WeeklyCup.toAchievementRecord()` calls a service|Must be pure — no side effects|
 |Any feature reads temporal preferences from `UserSettingsService`|Read from `UserCoreService` only|
+|Any feature calls `UserCoreService.getTemporalPreferences()` directly|Call `TemporalHelperService` — it owns that dependency|
+|`TemporalHelperService` imports any feature above it in the stack|Domain-agnostic — only calls `UserCoreService`|
 |`TemporalHelper` reads from any service|Caller passes preferences in — TemporalHelper has no dependencies|
 
 ---

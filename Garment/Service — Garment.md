@@ -1,4 +1,4 @@
-**File Name**: service_garment **Feature**: Garment **Phase**: 3 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: service_garment **Feature**: Garment **Phase**: 3 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -23,7 +23,6 @@ ThreadColorResolver (abstract)
 
 GarmentDeltaCalculator (abstract)
   → DefaultGarmentDeltaCalculator     // rule-based: contribution + decay + streak bonus
-  → (future: science-backed or AI-tuned implementation)
 
 GarmentRenderer (abstract)
   → SimpleThreadRenderer              // flat thread fill, visible strands
@@ -48,21 +47,32 @@ Idempotent — exits silently if a profile already exists for this `definitionId
 
 Also fires when an existing commitment's instance is recreated after a definition change — the idempotency check prevents duplicate profile creation.
 
-### `PerformanceUpdatedEvent` where `isClosed: true` → `_onWindowClosed(event)`
+### `InstanceUpdatedEvent` where `snapshot.status == closed` → `_onWindowClosed(event)`
 
-Fires when a commitment window closes with its final `livePerformance`. Triggers the daily garment update for this commitment.
+Fires when a commitment window closes. Triggers the daily garment update using the instance's final `livePerformance`.
 
 ```
 1. Read current GarmentProfile
-2. performanceValue = _getPerformance(event.definitionId, event.livePerformance)
-3. delta = GarmentDeltaCalculator.calculate(profile, performanceValue, commitmentType)
-4. Apply delta to completionPercent — clamp to 0.0–100.0
-5. Save updated profile via GarmentRepository
-6. Update live CommitmentWeeklyProgress record
-7. Publish GarmentUpdatedEvent
+2. performanceValue = _getPerformance(event.definitionId, event.snapshot.livePerformance)
+3. isSuccess = PerformanceService.isWindowSuccess(event.snapshot.livePerformance)
+4. delta = GarmentDeltaCalculator.calculate(profile, performanceValue, isSuccess)
+5. Apply delta to completionPercent — clamp to 0.0–100.0
+6. Save updated profile via GarmentRepository
+7. Update live CommitmentWeeklyProgress record
+8. Publish GarmentUpdatedEvent
 ```
 
 Idempotent — checks `lastUpdatedDate` before running.
+
+Frozen commitments are skipped — no garment update when `snapshot.commitmentState == frozen`.
+
+### `InstancePermanentlyDeletedEvent` → `_onCommitmentDeleted(event)`
+
+Deletes the `GarmentProfile` and all `CommitmentWeeklyProgress` records for this `definitionId`.
+
+### `WeekEndedEvent` → `_onWeekEnded(event)`
+
+Seals the live `CommitmentWeeklyProgress` record for all commitments. Sets `isCurrentWeek: false`. Creates new live records for the coming week.
 
 ---
 
@@ -79,15 +89,7 @@ if AppConfig.garmentUsesAccelerator == false:
 return AcceleratorService.getMultiplier(definitionId) * livePerformance
 ```
 
-When the accelerator is disabled, this is a pass-through — zero overhead, zero coupling. When enabled, it multiplies the raw performance by the current multiplier for this commitment. The formula is entirely inside `AcceleratorService` — changing how the accelerator works requires no change here.
-
-### `InstancePermanentlyDeletedEvent` → `_onCommitmentDeleted(event)`
-
-Deletes the `GarmentProfile` and all `CommitmentWeeklyProgress` records for this `definitionId`.
-
-### `WeekEndedEvent` → `_onWeekEnded(event)`
-
-Seals the live `CommitmentWeeklyProgress` record for all commitments. Sets `isCurrentWeek: false`. Creates new live records for the coming week.
+When the accelerator is disabled, this is a pass-through — zero overhead, zero coupling.
 
 ---
 
@@ -126,18 +128,16 @@ The running delta for the current week. Used by the garment display to show "Thi
 - Never reads `CommitmentDefinition` directly for ongoing updates — all needed data comes from instance events
 - Reads definition once at garment creation — for `GarmentTypeResolver` input only
 - All four resolver/calculator functions are injected — never instantiated inside the service
-- Frozen commitments are skipped — no garment update when `instance.commitmentState == frozen`
+- Frozen commitments skipped — no garment update when `snapshot.commitmentState == frozen`
 - `GarmentRenderer` is used only by `component_garment_display` — never called by this service
 
 ---
 
 ## Dependencies
 
-- EventBus — subscribes to `InstanceCreatedEvent`, `PerformanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`, `WeekEndedEvent` (published by CommitmentIdentityService); publishes `GarmentUpdatedEvent`
+- `CommitmentService` — subscribes to `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`, `WeekEndedEvent`
 - `GarmentRepository` — reads and writes `GarmentProfile` and `CommitmentWeeklyProgress`
 - `CommitmentService.getDefinition()` — reads definition once at garment creation
-- `AcceleratorService.getMultiplier()` — called by `_getPerformance()` when `garmentUsesAccelerator` is true. `AcceleratorService` calls `StreakService.getStreakRecord()` directly — Streak is an independent feature below Garment in the chain, a valid downward call
-- `GarmentTypeResolver` — injected
-- `ThreadColorResolver` — injected
-- `GarmentDeltaCalculator` — injected
-- `TemporalHelper` — day boundary and week start calculations
+- `PerformanceService.isWindowSuccess()` — window classification for delta calculation
+- `AcceleratorService.getMultiplier()` — called by `_getPerformance()` when `garmentUsesAccelerator` is true
+- `GarmentTypeResolver`, `ThreadColorResolver`, `GarmentDeltaCalculator` — injected

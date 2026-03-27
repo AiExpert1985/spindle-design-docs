@@ -1,8 +1,19 @@
-**File Name**: commitmentdefinition **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 21-Mar-2026
+**File Name**: model_commitment_definition **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
 **Purpose:** the template for a commitment. Defines what a commitment is, what the user wants to achieve, when it applies, and its current state. No activity or performance data lives here — those belong to other features.
+
+---
+
+## Two Vocabularies, One Feature
+
+The definition is what the user configured — their commitment as they understand it. The instance is what actually happened on a given day. These serve different audiences:
+
+- **UI reads the definition** — to show the user what they committed to: name, type, target, recurrence, window. The user configured these, and the UI reflects that configuration.
+- **Upper features work with instances** — Performance, Notifications, Streaks, Garment all react to what happened, not what was configured. They read instances, never the definition.
+
+This separation means the definition never changes retroactively — past history is always measured against the target that was in effect at the time, which lives on the instance.
 
 ---
 
@@ -20,7 +31,7 @@ A commitment is either something the user wants to do or something they want to 
 
 ## Recurrence
 
-How often the commitment repeats. Sealed class because `SpecificWeekDays` needs to carry the list of days while `Daily` and `Weekly` do not. See architecture_rules section 9.
+How often the commitment repeats. Sealed class because `SpecificWeekDays` needs to carry the list of days while `Daily` and `Weekly` do not. See `architecture_rules` §11.
 
 ```
 sealed class Recurrence
@@ -54,7 +65,7 @@ Target
 - **value** — what the user is measuring. Always >= 0. Examples: 20 (pages), 5.0 (km), 1 (done/not done), 0 (avoid entirely).
 - **measureUnit** — optional label. Examples: pages, km, cups. No effect on calculations — used for display and future AI analysis.
 
-For Do: success means logging at or above the target. For Avoid: success means staying at or below. A target of 0 on Avoid means any logged amount is failure.
+For Do: success means logging at or above the target. For Avoid: success means staying at or below. A target of 0 on Avoid means any logged amount is a breach.
 
 Target is editable. Changes apply from today forward.
 
@@ -73,7 +84,7 @@ ActivityWindow
 
 - **startMinutes** — when the window opens, in minutes from midnight. Example: 360 = 06:00.
 - **durationMinutes** — how long the window lasts. Example: 240 = 4 hours (06:00–10:00).
-- **warningEnabled** — whether to send a reminder notification at 3/4 of the window duration. `warningEnabled` lives here because it is a property of the notification behaviour of this window — it has no meaning outside it.
+- **warningEnabled** — whether to send a reminder notification at 3/4 of the window duration. Lives here because it is a property of this window's notification behaviour — it has no meaning outside it.
 
 Default values come from user settings. The user can override per commitment in advanced settings.
 
@@ -91,13 +102,13 @@ enum CommitmentState { active, frozen, completed, deleted }
 
 **active** — running normally. The user receives notifications and is expected to log activity.
 
-**frozen** — temporarily paused. No new daily follow-ups generated. No notifications sent. Resumable at any time.
+**frozen** — temporarily paused. No new instances generated. No notifications sent. Resumable at any time.
 
 **completed** — deliberately finished. Treated like frozen operationally, but shown as an achievement in the user's record.
 
-**deleted** — hidden from normal views. All data preserved and restorable. Permanent deletion is a separate irreversible action.
+**deleted** — soft delete. Hidden from normal views. All closed instance history is preserved and the commitment is restorable from the Recycle Bin. The pending instance is cleared on soft delete — it has no successor until the commitment is restored. Permanent deletion is a separate irreversible action that removes all data.
 
-State matters beyond display — features use it to decide whether to generate follow-ups, send notifications, or accept logs. State changes are recorded in the transition log.
+State changes are recorded in the transition log.
 
 ---
 
@@ -140,12 +151,12 @@ CommitmentDefinition
 
 - **id** — unique identifier. Immutable.
 - **name** — what the user calls this commitment. Required. Example: "Morning Run".
-- **description** — optional. User adds context or personal motivation. Displayed on the detail screen.
+- **description** — optional. User adds context or personal motivation. Displayed on the detail screen only — no effect on any calculation.
 - **commitmentType** — do or avoid. Immutable after creation.
 - **recurrence** — sealed class. Daily, Weekly, or SpecificWeekDays. Mutable.
 - **target** — typed class. The measurement goal. Editable — changes apply from today forward.
 - **activityWindow** — typed class. Preferred time of day and notification settings. Editable. Affects notifications only.
-- **commitmentState** — current lifecycle state. Only changed through CommitmentService functions.
+- **commitmentState** — current lifecycle state. Only changed through `CommitmentService` functions.
 - **createdAt** — immutable.
 - **updatedAt** — last modified timestamp.
 
@@ -153,8 +164,10 @@ CommitmentDefinition
 
 ## Rules
 
-- CommitmentService is the only writer of this model
+- `CommitmentService` is the only writer of this model
 - `commitmentType` is immutable after creation
 - Target and recurrence changes apply from today forward — past records never modified
-- State transitions only through CommitmentService — never by writing `commitmentState` directly
+- State transitions only through `CommitmentService` — never by writing `commitmentState` directly
+- UI reads the definition to show the user what they configured
+- Upper features (Performance, Notifications, Streaks, Garment) work with instances — never the definition
 - No external feature writes to this model

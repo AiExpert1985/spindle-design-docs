@@ -1,4 +1,4 @@
-**File Name**: service_encouragement **Feature**: Encouragement **Phase**: 2 **Created**: 18-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: service_encouragement **Feature**: Encouragement **Phase**: 2 **Created**: 18-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -14,12 +14,12 @@ Encouragement is a read-only reactor. It subscribes to events from below, reads 
 
 ## Events Subscribed
 
-### `LongIntervalTickEvent` → `_onTick(event)`
+### `Heartbeat.longIntervalTick` → `_onTick(tick)`
 
 Day celebration Path B — notification at configured time.
 
 ```
-if not isNearTime(tick.timestamp, userPrefs.celebrationTime): return
+if not _temporal.isNearTime(tick.timestamp, userPrefs.celebrationTime): return
 if not TickGuard.shouldRun('celebration', today): return
 if not userPrefs.celebrationEnabled: return
 
@@ -43,7 +43,7 @@ if crossed 50%:  emit ThresholdMessageSignal("Halfway there.")
 if crossed 100%: emit ThresholdMessageSignal("Commitment kept.")
 ```
 
-### `PerformanceUpdatedEvent` where `isClosed: true` → `_onWindowClosed(event)`
+### `InstanceUpdatedEvent` where `snapshot.status == closed` → `_onWindowClosed(event)`
 
 Path A — in-app day celebration. Checks if all commitment windows for today are now closed.
 
@@ -74,7 +74,7 @@ emit MilestoneOverlaySignal(
 
 ```
 emit CupCelebrationSignal(
-  cupLevel: event.record.subtype,   // bronze | silver | gold | diamond
+  cupLevel: event.record.subtype,
   earnedAt: event.record.earnedAt
 )
 ```
@@ -171,11 +171,15 @@ Seven story types selected by priority. Type 6 always applies as fallback. Never
 
 ## Dependencies
 
-- EventBus — subscribes to `LongIntervalTickEvent`, `ActivityEvent`, `PerformanceUpdatedEvent`, `AchievementEarnedEvent`, `LevelReachedEvent`
+- `Heartbeat` — subscribes to `longIntervalTick`
+- `CommitmentService` — subscribes to `InstanceUpdatedEvent`
+- `ActivityService` — subscribes to `ActivityEvent`
+- `AchievementsService` — subscribes to `AchievementEarnedEvent`
+- `ProgressionService` — subscribes to `LevelReachedEvent`
 - `TickGuard` — day celebration idempotency
+- `TemporalHelperService` — near-time check for celebration time
 - `PerformanceService.getDayScore()` — day score for celebration threshold check
 - `CommitmentIdentityService.getInstancesForDay()` — checks all windows are closed (Path A)
 - `AnalyticsService.computeDayFacts()` — story selection
-- `UserCoreService.getProfile()` — celebration preferences (celebrationEnabled, celebrationTime, celebrationThreshold)
+- `UserCoreService.getProfile()` — celebration preferences
 - `UserSettingsService.recordEncouragementSent()` — story deduplication
-- Riverpod providers — destination for all emitted signals

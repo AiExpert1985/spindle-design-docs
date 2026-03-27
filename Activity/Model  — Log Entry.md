@@ -1,22 +1,32 @@
-**File Name**: logentry **Feature**: Activity **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 21-Mar-2026
+**File Name**: model_log_entry **Feature**: Activity **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
-**Purpose:** one record of user activity against a commitment. Entries may be corrected within the backfill window but never deleted individually.
+**Purpose:** one record of user activity against a commitment. Entries may be corrected within the backfill window but are read-only beyond it.
 
 ---
 
 ## Design: definitionId + date, No instanceId
 
-LogEntry carries `definitionId` and `loggedAt` — not `instanceId`. PerformanceService identifies the correct instance by finding the instance whose `regenerationWindow` contains `loggedAt` for the given commitment.
+`LogEntry` carries `definitionId` and `loggedAt` — not `instanceId`. `PerformanceService` identifies the correct instance by finding the instance whose `regenerationWindow` contains `loggedAt` for the given commitment.
 
-This decouples the log from instance lifecycle — if an instance is cleared and recreated, existing logs are still correctly attributed by date. Grace-period logs work naturally: a log recorded after midnight finds the previous day's closed instance by date, with no special handling.
+This decouples the log from instance lifecycle — if an instance is cleared and recreated, existing logs are still correctly attributed by date.
 
 ---
 
-## Date Restriction
+## Why value is Always > 0
 
-Logs may only be recorded or edited for today and up to `AppConfig.maxLogBackfillDays` (default: 7) days in the past. Future logs are never accepted. Entries older than the backfill window become read-only — they can be viewed in the log history but not changed.
+A log entry only exists when the user recorded something happening. For do commitments this means activity occurred. For avoid commitments this means the user did the thing they were trying to avoid — the logged value is how much they did.
+
+Zero is never written. Absence of a log is the signal for zero activity on a given day. For avoid commitments, no log means the user succeeded — they avoided entirely. This keeps the model clean: a record's existence always means something was recorded.
+
+---
+
+## Backfill Window
+
+Logs may only be recorded or edited for today and up to `AppConfig.maxLogBackfillDays` (default: 7) days in the past. Future logs are never accepted. Entries older than the backfill window become read-only.
+
+The window exists to allow reasonable corrections — travel, illness, forgetting to log — while preventing unlimited retroactive changes that would corrupt scores and streaks. Attempts to write outside the window return a `Failure` result and the UI informs the user.
 
 ---
 
@@ -29,29 +39,34 @@ LogEntry
   value: double
   loggedAt: DateTime
   note: String?
-  contextTags: List<String>
   createdAt: DateTime
-  updatedAt: DateTime?
+  updatedAt: DateTime
 ```
 
 - **id** — client-generated UUID. Immutable.
 - **definitionId** — which commitment this log belongs to.
-- **value** — the amount recorded. Must be > 0. Examples: 3.2 (km run), 50 (pages read), 1 (binary done), 2 (cups for an avoid commitment).
-- **loggedAt** — the date the user attributes this activity to. May differ from `createdAt` for grace-period logs or backfill entries.
-- **note** — optional free-text. Used by AI Insights in later phases.
-- **contextTags** — optional predefined tags (tired, social, travel, motivated). Used for pattern analysis by AI Insights. Empty list if none provided.
+- **value** — the amount recorded. Always > 0. Examples: 3.2 (km run), 50 (pages read), 1 (binary done), 2 (cups for an avoid commitment).
+- **loggedAt** — the date the user attributes this activity to. May differ from `createdAt` for backfill entries. Immutable after creation.
+- **note** — optional free-text. Hidden in Phase 1 UI — stored for future AI Insights use.
 - **createdAt** — when this record was first written. Immutable.
-- **updatedAt** — when this record was last edited. Null if never edited. Distinct from `createdAt` — set only on edit, not on creation.
+- **updatedAt** — set to `createdAt` on creation. Updated on every edit. Never null.
 
 ---
 
 ## Rules
 
-- `value` must be > 0
-- `loggedAt` must be within `AppConfig.maxLogBackfillDays` — never future
+- `value` must be > 0 — a log entry always represents something that happened
+- `loggedAt` must be today or within `AppConfig.maxLogBackfillDays` — never future
+- `loggedAt` is immutable after creation — moving a log to a different date is not allowed
+- `updatedAt` is always set — initialized to `createdAt` on creation, updated on edit
 - Entries within the backfill window may be edited (value and note only) or deleted
 - Entries older than the backfill window are read-only
-- `loggedAt` is immutable after creation — moving a log to a different date is not allowed
 - Bulk deletion only on permanent commitment deletion
 - No `instanceId` — instance identified at read time by `definitionId + loggedAt` date
-- Owned by ActivityRepository only
+- Owned by `ActivityRepository` only
+
+---
+
+## Later Improvements
+
+**Context tags.** A list of predefined tags (tired, social, travel, motivated) the user can attach to a log entry at the moment of recording. Transforms raw activity data into behavioral data — enabling Analytics and AI Insights to explain patterns rather than just describe them. Requires adding `contextTags: List<String>` to this model and a tag selection UI in the log entry dialog. See `component_context_tags`.

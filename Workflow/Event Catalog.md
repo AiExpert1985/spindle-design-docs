@@ -61,10 +61,11 @@ Published by: CommitmentIdentityService. Public interface of the Commitment feat
 InstanceCreatedEvent
   instanceId: String
   definitionId: String
+  name: String
   windowStart: DateTime
 ```
 
-New or recreated instance exists.
+New or recreated instance exists. Carries `name` so subscribers never need a definition lookup to display or construct messages.
 
 ```
 InstanceUpdatedEvent
@@ -115,10 +116,9 @@ PerformanceUpdatedEvent
   definitionId: String
   windowStart: DateTime
   livePerformance: double
-  isClosed: bool
 ```
 
-`isClosed: true` signals the final result for a closed window. Features that act only on final results (Rewards, Encouragement) filter on this flag.
+Published after every `livePerformance` change. Features that need to react to a closed window watch `InstanceUpdatedEvent` for `snapshot.status == closed` directly — the closed signal is a lifecycle event on the instance, not a performance calculation event.
 
 ---
 

@@ -1,12 +1,12 @@
-**File Name**: logentrydialog **Feature**: Activity **Phase**: 1 **Created**: 21-Mar-2026 **Modified**: 21-Mar-2026
+**File Name**: component_log_entry_dialog **Feature**: Activity **Phase**: 1 **Created**: 21-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
-**Purpose:** the single entry point for recording user activity against a commitment. A lightweight dialog opened from two paths — manual navigation and notification action. Both paths lead to the same component with the same behaviour.
+**Purpose:** the single entry point for recording user activity against a commitment. A lightweight dialog opened from two paths — manual navigation and notification tap. Both paths lead to the same component with the same behaviour.
 
 ---
 
-**Expected placement:** opened as a centered dialog from the screen that shows the full detail of one commitment. Also triggered directly by notification actions — in that case it is opened by the notification handler, not by navigation.
+**Expected placement:** opened as a centered dialog from the screen that shows the full detail of one commitment. Also opened when the user taps a window-close or checkin notification — in that case the app navigates to the activity log screen which opens the dialog directly.
 
 ---
 
@@ -23,11 +23,11 @@ LogEntryDialog(
 )
 ```
 
-- **definitionId** — passed to ActivityService when writing the log entry.
+- **definitionId** — passed to `ActivityService` when writing the log entry.
 - **commitmentName** — displayed so the user knows which commitment they are logging for.
 - **commitmentType** — determines whether to show binary or numerical input.
-- **target** — provides the target value and unit label. Example: "target 5 km", "limit 2 cups".
-- **date** — the date this log is attributed to. Defaults to today when opened manually. Set to the window date when opened from a notification.
+- **target** — provides the target value and unit label.
+- **date** — the date this log is attributed to. Defaults to today when opened manually. Set to the window date when opened from a notification deep-link.
 - **dateLocked** — when true, the date field is shown but not editable. Used for notification-driven logging.
 
 The dialog is fully passive — it receives everything it needs and calls `ActivityService.recordEntry()` on confirmation. It contains no business logic and fetches nothing.
@@ -43,39 +43,43 @@ The dialog is fully passive — it receives everything it needs and calls `Activ
   Done ✓        Dismiss
 ```
 
-Two actions. No value input. "Done ✓" calls `recordEntry(value: 1, loggedAt: date)`. Dismiss closes without writing — absence of a log is the miss signal.
+Two actions. No value input. "Done ✓" calls `recordEntry(value: 1, loggedAt: date)`. Dismiss closes without writing.
 
 ### Numerical
 
 ```
 [ Morning Run ]   target: 5 km
   [ 3.2    ] km
-  ▸ Add note / tags   (collapsed — tap to expand)
+  ▸ Add note   (collapsed — tap to expand)
   [ Log ]
 ```
 
-Number input with unit label from `target.measureUnit`. Confirm button enabled only when value > 0. For avoid commitments the label reads "How much did you have?" instead of the default prompt — same input structure.
+Number input with unit label from `target.measureUnit`. Confirm button enabled only when value > 0. For avoid commitments the label reads "How much did you have?" instead of the default prompt.
 
 ---
 
-## Notes and Context Tags
+## Note
 
-Both are hidden by default behind a single "Add note / tags" toggle. Tapping it expands:
+Hidden by default behind an "Add note" toggle. Tapping it expands a free-text field. Optional. The expand state is not persisted between opens.
 
-- **Note** — free-text field, optional. Used by AI Insights in later phases.
-- **Context tags** — predefined list (tired, social, travel, motivated, etc.). Multi-select. Used for pattern analysis by AI Insights.
-
-Hiding them by default keeps the dialog fast for the common case — most logs are quick value entries. Users who want to add context tap to expand. The expand state is not persisted between opens.
+Note is stored on the log entry for future AI Insights use — it has no effect on scoring or performance in Phase 1.
 
 ---
 
 ## Date Selection
 
-When `dateLocked: false`, the user can change the date within the last `AppConfig.maxLogBackfillDays` days. Future dates are not selectable. This covers backfill scenarios — travel, illness, forgetting to log.
+When `dateLocked: false`, the user can change the date within the last `AppConfig.maxLogBackfillDays` days. Future dates are not selectable. The date picker shows only selectable dates — no interaction needed for the restriction in the common case.
 
 When `dateLocked: true` (notification path), the date field is visible but not interactive.
 
-Logging is allowed regardless of the commitment's current state — frozen, completed, or active. A user may navigate to a frozen commitment and add backfill logs. The date restriction is the only gate, enforced by ActivityService.
+If `ActivityService.recordEntry()` returns a `Failure` due to the date being outside the backfill window, the dialog shows:
+
+```
+This date is too far back to log.
+You can only log activity for the last 7 days.
+```
+
+The dialog stays open — the user can change the date or dismiss.
 
 ---
 
@@ -83,23 +87,9 @@ Logging is allowed regardless of the commitment's current state — frozen, comp
 
 **Manual — from commitment detail screen** Passes `definitionId`, `commitmentName`, `commitmentType`, `target`, `date: today`, `dateLocked: false`.
 
-**Notification-driven — from window-close notification** Passes `definitionId`, `commitmentName`, `commitmentType`, `target`, `date: windowDate`, `dateLocked: true`.
+**Notification-driven — from window-close or checkin notification tap** The notification carries a deep-link route: `/log?definitionId=abc123`. The app navigates to the activity log screen, which opens this dialog with `dateLocked: true` and `date: windowDate`.
 
 Both paths open the same dialog. The only difference is `dateLocked`.
-
----
-
-## Notification Actions
-
-The window-close notification is constructed and scheduled by `CommitmentNotificationSchedulerService` — see that doc for the full payload definition. The dialog is only involved when the user taps "Log" on a numerical commitment.
-
-**Binary commitment action — "Done":** calls `ActivityService.recordEntry(value: 1, loggedAt: windowDate)` directly. The dialog is not opened.
-
-**Numerical commitment action — "Log":** opens this dialog with `dateLocked: true` and `date: windowDate`.
-
-**"15 more minutes" action:** carries `actionId: 'grant_grace'` in the notification payload. `GraceService` subscribes to `NotificationActionEvent` and handles it. The dialog is not involved — this is a notification-level action, not a UI action.
-
-**Dismiss** — no log written. No grace created.
 
 ---
 
@@ -110,5 +100,11 @@ The window-close notification is constructed and scheduled by `CommitmentNotific
 - `dateLocked: true` when opened from notification
 - Binary variant never writes a missed log — dismiss is always silent
 - Dismiss always closes without writing
-- Note and context tags hidden by default — expanded on user tap
 - Logging allowed regardless of commitment state — frozen commitments can receive backfill logs
+- On `Failure` from `ActivityService` — show the user the reason, keep dialog open
+
+---
+
+## Later Improvements
+
+**Context tags.** Predefined tags (tired, social, travel, motivated) attached to a log at the moment of recording. Shown as an optional step after confirmation. Requires `contextTags` field on `LogEntry` and `ActivityService.editEntry()` extension. See `component_context_tags`.

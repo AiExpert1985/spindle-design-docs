@@ -1,49 +1,58 @@
-**File Name**: activityrepository **Feature**: Activity **Phase**: 1 (Drift) · Phase 3 (Firestore) **Created**: 15-Mar-2026 **Modified**: 21-Mar-2026
+**File Name**: repository_activity **Feature**: Activity **Phase**: 1 (Drift) · Phase 3 (Firestore) **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
-**Purpose:** storage interface for LogEntry records. Called only by ActivityService. Abstract interface — nothing above this layer knows whether Drift or Firestore is active.
+**Purpose:** storage interface for `LogEntry` records. Called only by `ActivityService`. Abstract interface — nothing above this layer knows whether Drift or Firestore is active.
 
 ---
 
-## Operations
+## Interface
 
-### `saveEntry(entry)`
+```dart
+abstract class ActivityRepository {
+  Future<void> saveEntry(LogEntry entry);
+  Future<void> updateEntry(String entryId, double value, String? note, DateTime updatedAt);
+  Future<void> deleteEntry(String entryId);
+  Future<LogEntry?> getEntry(String entryId);
+  Future<List<LogEntry>> getEntriesForDay(String definitionId, DateTime date);
+  Future<List<LogEntry>> getEntriesForWeek(String definitionId, DateTime weekStart);
+  Future<List<LogEntry>> getEntriesForPeriod(String definitionId, DateTime from, DateTime to);
+  Future<void> deleteEntriesForCommitment(String definitionId);
+}
+```
 
-Creates a new log entry. Append-only — never called for updates.
+`saveEntry` — append-only. Never called for updates.
 
-### `updateEntry(entryId, value, note?, updatedAt)`
+`updateEntry` — updates `value`, `note`, and `updatedAt` only. All other fields are immutable and never written here.
 
-Updates `value`, `note`, and `updatedAt` on an existing entry. Only these three fields are ever updated — `loggedAt`, `definitionId`, and `createdAt` are immutable.
+`deleteEntry` — hard delete for one entry. `ActivityService` enforces the backfill window before calling.
 
-### `deleteEntry(entryId)`
+`getEntry` — returns one entry by ID, or null if not found. Used by `ActivityService` before edit or delete to confirm the entry exists and check its `loggedAt`.
 
-Deletes one log entry by id. Only called within the backfill window — ActivityService enforces the restriction before calling.
+`getEntriesForDay` — all entries for a commitment on a specific date, ordered by `loggedAt` ascending.
 
-### `getEntriesForDay(definitionId, date)`
+`getEntriesForWeek` — all entries for a commitment in the Mon–Sun week containing `weekStart`, ordered by `loggedAt` ascending.
 
-All log entries for a commitment on a specific day, ordered by `loggedAt` ascending.
+`getEntriesForPeriod` — all entries for a commitment between `from` and `to` inclusive, ordered by `loggedAt` ascending. Used by Analytics.
 
-### `getEntriesForPeriod(definitionId, from, to)`
+`deleteEntriesForCommitment` — deletes all entries for a commitment. Called only on permanent commitment deletion.
 
-All log entries for a commitment in a date range. Used by Analytics and LogHistorySheet.
+---
 
-### `getTotalLoggedForCommitmentOnDate(definitionId, date)`
+## Firestore Compatibility
 
-Sum of all `value` fields for a commitment on a given date. Used by PerformanceService.
+All queries use a single range filter on `loggedAt` combined with an equality filter on `definitionId` — compatible with Firestore's one-range-filter constraint. The composite index `definitionId ASC, loggedAt ASC` covers all read operations.
 
-### `deleteEntriesForCommitment(definitionId)`
-
-Deletes all log entries for a commitment. Called by ActivityService on permanent commitment deletion only.
+No aggregations in the repository — all totals and sums are computed by `ActivityService` after fetching entries.
 
 ---
 
 ## Rules
 
-- Called only by ActivityService
+- Called only by `ActivityService`
 - `saveEntry` is append-only — never used for updates
 - `updateEntry` changes only `value`, `note`, `updatedAt` — all other fields immutable
-- `deleteEntry` called only after ActivityService confirms entry is within backfill window
+- `deleteEntry` called only after `ActivityService` confirms the entry is within the backfill window
 - Bulk delete only on permanent commitment deletion
-- No instanceId on LogEntry — all queries use `definitionId` + date
 - No business logic — only fetch and store
+- No aggregations — raw records only

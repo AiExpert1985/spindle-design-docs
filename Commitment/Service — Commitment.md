@@ -1,14 +1,14 @@
-**File Name**: commitmentservice **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 21-Mar-2026
+**File Name**: service_commitment **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
-**Purpose:** manages the lifecycle of commitment definitions. The single writer of CommitmentDefinition. Handles creation, editing, and all state transitions. Publishes events consumed only within the Commitment feature.
+**Purpose:** manages the lifecycle of commitment definitions. The single writer of `CommitmentDefinition`. Handles creation, editing, and all state transitions. Publishes events consumed only within the Commitment feature.
 
 ---
 
 ## Public Interface of the Commitment Feature
 
-The public interface of Commitment is the instance events published by CommitmentIdentityService — not CommitmentEvent. No feature outside Commitment subscribes to CommitmentEvent. It is an internal coordination mechanism between CommitmentService and CommitmentIdentityService within the same feature.
+The public interface of Commitment is the instance events published by `CommitmentIdentityService` — not `CommitmentEvent`. No feature outside Commitment subscribes to `CommitmentEvent`. It is an internal coordination mechanism between `CommitmentService` and `CommitmentIdentityService` within the same feature.
 
 The rest of the application interacts with Commitment entirely through instances. Features read instances to get commitment name, state, target, and notification config — no definition lookup needed for operational decisions.
 
@@ -39,7 +39,7 @@ CommitmentSnapshot
 
 **Why one event type with three enum values rather than separate events per change?**
 
-CommitmentIdentityService always performs the same operation for any update: clear the pending instance and recreate it from the snapshot. Whether the target changed, the recurrence changed, the activity window changed, or the state transitioned — the reaction is identical. Separate events (TargetChangedEvent, RecurrenceChangedEvent, StateChangedEvent) would all trigger the same handler with the same result. One `updated` event with a full snapshot is simpler, equally expressive, and easier to extend — adding a new editable field requires no new event type.
+`CommitmentIdentityService` always performs the same operation for any update: clear the pending instance and recreate it from the snapshot. Whether the target changed, the recurrence changed, or the state transitioned — the reaction is identical. One `updated` event with a full snapshot is simpler and equally expressive. Adding a new editable field requires no new event type.
 
 The three enum values map to three genuinely different operations:
 
@@ -49,7 +49,7 @@ The three enum values map to three genuinely different operations:
 
 `updated` covers all definition changes including state transitions. Soft delete is a state change — published as `updated` with `snapshot.commitmentState == deleted`. Only permanent deletion uses `deleted`.
 
-`snapshot` carries everything CommitmentIdentityService needs to recreate instances — no follow-up definition lookup required. `ActivityWindow` in the snapshot includes `warningEnabled`.
+`snapshot` carries everything `CommitmentIdentityService` needs to recreate instances — no follow-up definition lookup required.
 
 ---
 
@@ -105,7 +105,7 @@ Valid from `deleted` only. Removes definition and full `StateTransitionLog`. Pub
 |deleted|active|restoreCommitment|
 |deleted|permanent|permanentDeleteCommitment|
 
-Delete is available from any non-deleted state — active, frozen, or completed. A user must always be able to remove a commitment regardless of its current lifecycle stage. Invalid transitions return an error — never silently ignored.
+Delete is available from any non-deleted state. Invalid transitions return a `Failure` result — never silently ignored.
 
 ---
 
@@ -121,31 +121,30 @@ Delete is available from any non-deleted state — active, frozen, or completed.
 **One-time**
 
 - `getDefinition(id)` — used when display data is needed (description, full details)
-- `getCommitmentsByState()` — counts grouped by state: `{ active, frozen, completed, deleted }`. Used by dashboard filter chips and Your Record.
-- `getPortfolioSize()` — total count of all commitments excluding permanently deleted. Used by CommitmentAccessService to enforce free tier limits.
-- `getActiveCount()` — count of active commitments only. Used by CommitmentAccessService for the active portfolio limit check.
+- `getCommitmentCountsByState()` — counts grouped by state: `{ active, frozen, completed, deleted }`. Used by dashboard filter chips and Your Record.
+- `getPortfolioSize()` — total count excluding permanently deleted. Used by `UserCapabilityService` to enforce free tier limits.
+- `getActiveCount()` — count of active commitments only.
 - `getRecentlyCreated(since)` — definitions created after a given date. Used by rate limit checks.
-- `getStateTransitionLog(definitionId)` — full ordered log for one commitment. Used by calendar and Your Record.
+- `getStateTransitionLog(definitionId)` — full ordered log for one commitment.
 
 ---
 
 ## Rules
 
-- The only writer of CommitmentDefinition
-- `CommitmentEvent` is consumed only by CommitmentIdentityService — never by features outside Commitment
-- Never calls CommitmentIdentityService — instances react through events
+- The only writer of `CommitmentDefinition`
+- `CommitmentEvent` is consumed only by `CommitmentIdentityService` — never by features outside Commitment
+- Never calls `CommitmentIdentityService` — instances react through the internal event stream
 - `permanentDeleteCommitment` publishes `CommitmentEvent(type: deleted)` only — calls nothing else
 - `commitmentType` changes rejected on update — immutable after creation
+- All functions return `Result<T>` — no raw exceptions
 
 **Why CommitmentService never closes instances directly:**
 
-When a commitment is frozen, completed, or soft-deleted, the pending instance is not closed by CommitmentService. This is intentional. An instance's window is a fact about time — it closes when its `regenerationWindow.windowEnd` arrives, not when the commitment changes state. CommitmentService owns definitions. CommitmentIdentityService owns instances. CommitmentService may not call CommitmentIdentityService directly — CommitmentIdentityService is built above CommitmentService in the intra-feature dependency order, and lower services never call upward.
-
-The correct flow: CommitmentService publishes `CommitmentEvent(type: updated, snapshot.commitmentState: frozen)`. CommitmentIdentityService subscribes, clears the pending instance (meaning no successor will be generated), and lets the existing pending instance close naturally when its window ends. The instance remains open and loggable until its `regenerationWindow.windowEnd` — the commitment state change does not retroactively invalidate the current window.
+When a commitment is frozen, completed, or soft-deleted, the pending instance is not closed by `CommitmentService`. An instance's window is a fact about time — it closes when its `regenerationWindow.windowEnd` arrives, not when the commitment changes state. `CommitmentService` owns definitions. `CommitmentIdentityService` owns instances. The correct flow: `CommitmentService` publishes the state change event. `CommitmentIdentityService` subscribes, clears the pending instance so no successor will be generated, and lets the existing pending instance close naturally when its window ends.
 
 ---
 
 ## Dependencies
 
-- CommitmentRepository — definition and state transition log storage
-- EventBus — publishes CommitmentEvent (internal)
+- `CommitmentRepository` — definition and state transition log storage
+- Internal stream — publishes `CommitmentEvent` consumed only by `CommitmentIdentityService`
