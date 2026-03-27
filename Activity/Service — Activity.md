@@ -26,7 +26,7 @@ ActivityEvent
   value: double?            // null on deleted
 ```
 
-Published after every successful write, edit, or delete. `PerformanceService` subscribes and recalculates `livePerformance` for the matching instance on every type. `Encouragement` subscribes to `created` only.
+Published after every successful write, edit, or delete. `PerformanceService` subscribes and recalculates `livePerformance` for the matching instance on every type. `Encouragement` subscribes to `created` only for immediate log feedback.
 
 ---
 

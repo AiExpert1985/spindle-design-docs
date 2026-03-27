@@ -32,6 +32,8 @@ There is always exactly one pending instance per commitment. When the pending in
 
 When an instance window ends, close and replicate happen as sequential steps in the same tick handler — not through events. `_closeInstance()` sets status to closed, then `_generateNextInstance()` is called immediately. `InstanceUpdatedEvent` is published after both steps complete. This avoids self-subscription and keeps the sequence atomic.
 
+Replication uses only data from the closing instance. The definition is consulted only when no prior instance exists (catch-up on first launch after a brand new commitment) — not on every replication.
+
 For `SpecificWeekDays`, `calculateNextWindowStart` uses the `weekDays` list to find the next configured day. Example: for [Sun, Fri], a Sunday instance spawns a Friday successor; a Friday instance spawns a Sunday successor on the following week.
 
 ---
@@ -41,6 +43,8 @@ For `SpecificWeekDays`, `calculateNextWindowStart` uses the `weekDays` list to f
 Because there is always exactly one pending instance per commitment, recreation is simple: clear the single pending instance and generate a new one from the updated snapshot.
 
 This is triggered by any `CommitmentEvent(type: updated)` — regardless of what changed. The identity service does not inspect what specifically changed — it always clears and recreates. This uniformity is why a single `updated` event type with a full snapshot is sufficient.
+
+Example: user changes `SpecificWeekDays` from [Sun, Tue] to [Sun, Mon]. The single pending instance (which might have been a Tuesday instance) is cleared. A new instance is generated for the correct next occurrence under the new configuration. No orphan detection needed.
 
 Closed instances are never touched — they are permanent historical records.
 

@@ -139,5 +139,5 @@ The running delta for the current week. Used by the garment display to show "Thi
 - `GarmentRepository` — reads and writes `GarmentProfile` and `CommitmentWeeklyProgress`
 - `CommitmentService.getDefinition()` — reads definition once at garment creation
 - `PerformanceService.isWindowSuccess()` — window classification for delta calculation
-- `AcceleratorService.getMultiplier()` — called by `_getPerformance()` when `garmentUsesAccelerator` is true
+- `AcceleratorService.getMultiplier()` — called by `_getPerformance()` when `garmentUsesAccelerator` is true. `AcceleratorService` calls `StreakService.getStreakRecord()` directly — Streak is below Garment in the chain, a valid downward call
 - `GarmentTypeResolver`, `ThreadColorResolver`, `GarmentDeltaCalculator` — injected

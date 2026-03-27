@@ -187,7 +187,7 @@ No events published. No public read functions — internal only. See `service_no
 
 **Publishes:** `ActivityEvent` (created | updated | deleted)
 
-**Public functions:** `recordEntry()`, `editEntry()`, `deleteEntry()`, `getTotalLoggedForCommitmentOnDate()`, `getEntriesForCommitment()`, `getEntriesForDay()`
+**Public functions:** `recordEntry()`, `editEntry()`, `deleteEntry()`, `getTotalLoggedForCommitmentOnDate()`, `getEntriesForDay()`, `getEntriesForWeek()`, `getEntriesForPeriod()`
 
 **Subscribes to:** `InstancePermanentlyDeletedEvent` (Commitment)
 
@@ -313,11 +313,23 @@ No events subscribed. No events published. Pure computation on demand.
 
 ---
 
+### Analytics
+
+**Public functions:** `computeCommitmentFacts()`, `computeWeeklyFacts()`, `computeDayFacts()`
+
+No events published. No events subscribed. Pure computation on demand.
+
+**Calls directly:** `ActivityService.getEntriesForPeriod()`, `ActivityService.getEntriesForDay()`, `PerformanceService.getPerformanceForPeriod()`, `PerformanceService.getDayScore()`, `CommitmentIdentityService.getInstances()`
+
+---
+
 ### AI Insights
 
-**Public functions:** `generateMicroInsight()`, `generateQuickSummary()`, `generateDeepReport()`
+**Public functions (AIInsightService):** `generateMicroInsight(definitionId)`, `generateQuickSummary(weekStart)`, `generateDeepReport(from, to)`, `getLastInsight(type, definitionId?)`
 
-**Calls directly:** `AnalyticsService` (all reads)
+**Subscribes to:** `WeekEndedEvent` (Commitment) — for auto quick summary trigger
+
+**Calls directly:** `AnalyticsService` (all three compute functions), `UserSettingsService.checkAndDecrementInsightQuota()`, `AIInsightRepository`
 
 ---
 

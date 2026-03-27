@@ -51,4 +51,4 @@ Live stream of profile changes. Used by features that cache preferences and need
 - No write functions — `UserSettingsService` writes via `UserCoreRepository` directly
 - `storageBackend` changed only by `MigrationService` — `UserCoreService` never writes this field
 - No events published — profile changes propagate via `watchProfile()` stream
-- All temporal preference reads by callers are passed into `TemporalHelper` as a value object — no feature reads raw temporal fields from the profile for its own time calculations
+- All temporal preference reads by any feature go through `TemporalHelperService` — no feature calls `getTemporalPreferences()` directly except `TemporalHelperService` itself

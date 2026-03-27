@@ -110,3 +110,11 @@ match /users/{userId}/{collection}/{docId} {
 ```
 
 All subcollections covered. No additional rules needed.
+
+---
+
+## Performance at Scale
+
+- Free users: independent SQLite files, zero shared infrastructure, scales infinitely
+- Paid users: all reads from local Firestore cache — server reads only on sync
+- 100k paid users: subcollection structure means each user's queries only scan their own data

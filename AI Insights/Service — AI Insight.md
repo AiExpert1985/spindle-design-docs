@@ -1,16 +1,23 @@
-
-**Created**: 15-Mar-2026
-**Modified**: -
-**Feature:** ai insights 
-**Phase:** 3
+**File Name**: service_ai_insight **Feature**: AI Insights **Phase**: 3 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 **Availability:** Pro / Premium only.
 
-**Purpose:** takes pre-computed facts and notes from the analysis service and produces genuine AI reasoning — causes, patterns, and actionable recommendations. Abstract interface — the rest of the app never knows which provider is active.
+---
+
+**Purpose:** takes pre-computed facts and notes from `AnalyticsService` and produces genuine AI reasoning — causes, patterns, and actionable recommendations. Owns insight storage and all rate limit enforcement. Abstract interface — the rest of the app never knows which AI provider is active.
 
 ---
 
 ## Abstraction
+
+```dart
+abstract class AIInsightService {
+  Future<Result<AIInsightRecord>> generateMicroInsight(String definitionId);
+  Future<Result<AIInsightRecord>> generateQuickSummary(DateTime weekStart);
+  Future<Result<AIInsightRecord>> generateDeepReport(DateTime from, DateTime to);
+  Future<AIInsightRecord?> getLastInsight(InsightType type, {String? definitionId});
+}
+```
 
 ```
 AIInsightService (abstract)
@@ -22,45 +29,43 @@ Components call `AIInsightService` only. Swapping the provider means adding one 
 
 ---
 
-## Core Functions
+## Functions
 
-### `generateMicroInsight(commitmentFactsPayload)`
+### `generateMicroInsight(definitionId) → Result<AIInsightRecord>`
 
-Takes the full `CommitmentFactsPayload` (stats + 30 days of notes) for one commitment and returns a 2–4 sentence reasoning insight.
+1. Check free-tier quota via `UserSettingsService.checkAndDecrementInsightQuota()`. Returns `Failure` if quota exhausted — the presentation layer shows the upgrade prompt.
+2. Fetch facts via `AnalyticsService.computeCommitmentFacts(definitionId, last 30 days, includeNotes: true)`.
+3. Format payload into prompt internally.
+4. Call AI provider. Returns `Failure` on network or API error.
+5. Save result via `AIInsightRepository.saveInsight(record)`.
+6. Return `Success(record)`.
 
-AI focus: explain _why_ the pattern exists and give one or two specific actionable recommendations. Not a restatement of stats — the user already sees those.
+Pro/Premium users have no quota. Free users have a configurable weekly limit from `AppConfig.freeInsightsPerWeek`.
 
-Returns: narrative string. Called by: micro-insight component.
+### `generateQuickSummary(weekStart) → Result<AIInsightRecord>`
 
----
+Pro/Premium only — quota never applies.
 
-### `generateQuickSummary(weekFactsPayload)`
+1. Fetch facts via `AnalyticsService.computeWeeklyFacts(weekStart, weekEnd, includeNotes: false)`.
+2. Format payload into prompt.
+3. Call AI provider. Returns `Failure` on error.
+4. Save result via `AIInsightRepository.saveInsight(record)`.
+5. Return `Success(record)`.
 
-Takes `WeeklyFactsPayload` for the current week (stats only, no notes) and returns a short weekly digest.
+### `generateDeepReport(from, to) → Result<AIInsightRecord>`
 
-AI focus: one observation about the week and one small suggestion. Brief and warm — not a deep analysis.
+Pro/Premium only. Rate-limited to once per 7 days.
 
-Returns: narrative string. Called by: weekly summary component (auto Sunday trigger).
+1. Check `AIInsightRepository.getLastInsight(deepReport)`. If `generatedAt` is within 7 days, return `Failure(AppError(type: validation, message: 'Deep report already generated this week'))`. The presentation layer shows the user when the next report is available.
+2. Fetch facts via `AnalyticsService.computeWeeklyFacts(from, to, includeNotes: true)`.
+3. Format payload into prompt.
+4. Call AI provider. Returns `Failure` on error.
+5. Save result via `AIInsightRepository.saveInsight(record)`.
+6. Return `Success(record)`.
 
----
+### `getLastInsight(type, definitionId?) → AIInsightRecord?`
 
-### `generateDeepReport(weekFactsPayload)`
-
-Takes `WeeklyFactsPayload` for the past 4–8 weeks (stats + full notes) and returns a comprehensive analysis.
-
-AI focus: cross-commitment correlations, root causes from timing and notes, what is genuinely improving vs just a good period, two or three prioritized and specific recommendations.
-
-Returns: narrative string. Called by: weekly summary component (manual trigger only).
-
----
-
-## Rules
-
-- Input is always a pre-computed payload from `CommitmentAnalyticsService` — never raw instances or log entries
-- AI provider receives no user identifiers — only behavioral facts and anonymized notes
-- `generateDeepReport` rate-limited to once per week — enforced by the weekly summary component before calling
-- All functions are behind the tier gate — free users never reach this service
-- The service formats the payload into a prompt internally — components never construct prompts
+Returns the last stored insight of the given type, or null. Called by components to show a cached insight before offering regeneration.
 
 ---
 
@@ -82,3 +87,23 @@ These rules apply to every prompt written inside this service. The AI writes nar
 - **Analytical, never moral** — describe what happened, never judge the person
 - **Specific, never generic** — "you skip walk on Fridays after 5pm" beats "you struggle with consistency"
 - **One or two recommendations maximum** — more than two is overwhelming and none get acted on
+
+---
+
+## Rules
+
+- Input is always pre-computed facts from `AnalyticsService` — never raw instances or log entries
+- AI provider receives no user identifiers — only behavioral facts and anonymized notes
+- All rate limit and quota enforcement happens here — components never enforce limits themselves
+- The service formats the payload into a prompt internally — components never construct prompts
+- All functions return `Result<T>` — failures (quota exhausted, rate limited, API error) surface to the presentation layer
+- Written records go through `AIInsightRepository` — no other feature writes insight records
+
+---
+
+## Dependencies
+
+- `AIInsightRepository` — reads and writes insight records
+- `AnalyticsService` — computes facts payload for all three insight types
+- `UserSettingsService.checkAndDecrementInsightQuota()` — free-tier quota check (micro-insight only)
+- `AppConfig` — `freeInsightsPerWeek`, deep report rate limit window

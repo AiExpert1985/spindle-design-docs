@@ -99,6 +99,8 @@ _No cycles._ A lower feature cannot accidentally call a higher feature — it ca
 
 _Incremental addition._ New features subscribe to existing streams without touching existing code.
 
+_Enforced separation._ Per-feature streams are a structural gap between publisher and subscriber — a feature cannot subscribe to events it has no right to see.
+
 _Failure isolation._ A subscriber that throws does not affect the publisher or other subscribers.
 
 _Isolated testing._ Emit a test event to verify a subscriber. Assert an event was emitted to verify a publisher.
@@ -113,7 +115,7 @@ _Execution order is not guaranteed._ If Subscriber B needs the result of Subscri
 
 - Publishers fire and forget — they never check who subscribed
 - Subscribers are fully independent — they never know who published
-- Events carry only the values that changed — not full model snapshots, not unrelated data
+- Events carry only the values that changed — no follow-up service call needed. Events never carry full model snapshots or unrelated data.
 - A feature's internal events are not part of its public interface — only events consumed by features above it are public
 - Events are never consumed from the presentation layer — UI observes providers
 - Every subscription is cancelled when the service is disposed

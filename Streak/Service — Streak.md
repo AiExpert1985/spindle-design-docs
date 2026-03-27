@@ -10,6 +10,8 @@
 
 ## Design Decisions
 
+**Why Streak is its own feature.** Streak data is consumed by multiple features above it for different purposes. Keeping Streak standalone means each consumer subscribes to `StreakChangedEvent` or calls `getStreakRecord()` independently — no consumer depends on another.
+
 **Why a signed integer.** A single signed integer carries both directions. Positive = consecutive kept days, negative = consecutive missed days, zero = neutral. Eliminates two separate counters and makes transition rules trivially simple.
 
 **Why zero is a neutral state.** A positive streak that breaks goes to zero before going negative on the next miss. One missed day after a long kept streak is not immediately a bad streak — the pattern of missing is what matters.
