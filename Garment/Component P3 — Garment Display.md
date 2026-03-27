@@ -1,4 +1,4 @@
-**File Name**: component_garment_display **Feature**: Garment **Phase**: 3 **Created**: 18-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: component_garment_display **Feature**: Garment **Phase**: 3 **Created**: 18-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -55,13 +55,19 @@ Thread colors come from `GarmentProfile.threadColors` — the same colors always
 
 ---
 
+## Live Updates
+
+The garment updates live. The parent screen observes `GarmentService.watchGarmentProfile(definitionId)` — a stream that emits whenever `GarmentUpdatedEvent` fires. The component re-renders with the new `completionPercent` immediately. No stale state, no deferred update.
+
+---
+
 ## Animation
 
 **On first render:** threads animate in from 0% (or 100% for Avoid) to `completionPercent` over ~1.5 seconds. Plays every time the screen opens.
 
-**On value update:** new threads animate in smoothly over ~600ms. Additive — threads visibly join the weave.
+**On value increase:** new threads animate in smoothly over ~600ms. Additive — threads visibly join the weave.
 
-**On decay (percent decreases):** threads fade and withdraw. Subtle and slow — consistent with the UX principle of silence on negative events. ~800ms, plays on next screen open, not immediately.
+**On value decrease (decay):** threads fade and withdraw. Subtle and slow — consistent with the UX principle of silence on negative events. ~800ms.
 
 **On load failure or animation under load:** renders static garment at current percent. Never blocks, never shows an error. See `ux_principles` rule 5.
 
@@ -97,6 +103,7 @@ The completion label is rendered by the host screen, not this component — keep
 
 - Pure visual component — no service calls, no repository access, no event subscriptions
 - Receives all data from parent — never fetches independently
+- Updates live via the parent screen's `watchGarmentProfile()` stream
 - Delegates all drawing to `GarmentRenderer` — contains no canvas logic
 - `GarmentRenderer` is injected — the component never instantiates it directly
 

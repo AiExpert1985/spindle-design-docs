@@ -273,7 +273,7 @@ No events subscribed. No events published. Pure computation on demand.
 
 **Public functions:** `watchGarmentProfile()`, `getWeeklyProgress()`, `getLiveWeekDelta()`
 
-**Subscribes to:** `InstanceCreatedEvent` (Commitment), `InstanceUpdatedEvent` where `status: closed` (Commitment), `InstancePermanentlyDeletedEvent` (Commitment), `WeekEndedEvent` (Commitment)
+**Subscribes to:** `InstanceCreatedEvent` (Commitment), `PerformanceUpdatedEvent` (Performance), `InstancePermanentlyDeletedEvent` (Commitment), `WeekEndedEvent` (Commitment)
 
 **Calls directly:** `CommitmentService.getDefinition()`, `StreakService.getStreakRecord()` (via AcceleratorService)
 

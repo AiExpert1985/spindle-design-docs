@@ -2,7 +2,7 @@
 
 ---
 
-**Purpose:** owns the complete lifecycle of garment profiles. Initializes garments when commitments are created, updates them daily as performance accumulates, and exposes read functions to the presentation layer. The single writer of `GarmentProfile` and `CommitmentWeeklyProgress`.
+**Purpose:** owns the complete lifecycle of garment profiles. Initializes garments when commitments are created, updates them live as performance changes, and exposes read functions to the presentation layer. The single writer of `GarmentProfile` and `CommitmentWeeklyProgress`.
 
 Fully independent — subscribes to events from below, writes nothing outside its own models, and can be removed without affecting any other feature.
 
@@ -47,24 +47,24 @@ Idempotent — exits silently if a profile already exists for this `definitionId
 
 Also fires when an existing commitment's instance is recreated after a definition change — the idempotency check prevents duplicate profile creation.
 
-### `InstanceUpdatedEvent` where `snapshot.status == closed` → `_onWindowClosed(event)`
+### `PerformanceUpdatedEvent` → `_onPerformanceUpdated(event)`
 
-Fires when a commitment window closes. Triggers the daily garment update using the instance's final `livePerformance`.
+Fires on every `livePerformance` change. Triggers a live garment update using the current performance value.
 
 ```
 1. Read current GarmentProfile
-2. performanceValue = _getPerformance(event.definitionId, event.snapshot.livePerformance)
-3. isSuccess = PerformanceService.isWindowSuccess(event.snapshot.livePerformance)
-4. delta = GarmentDeltaCalculator.calculate(profile, performanceValue, isSuccess)
-5. Apply delta to completionPercent — clamp to 0.0–100.0
-6. Save updated profile via GarmentRepository
-7. Update live CommitmentWeeklyProgress record
-8. Publish GarmentUpdatedEvent
+2. Check lastUpdatedDate — if already updated today, exit (idempotent)
+3. if snapshot.commitmentState == frozen: exit  // safety net — see note below
+4. performanceValue = _getPerformance(event.definitionId, event.livePerformance)
+5. isSuccess = PerformanceService.isWindowSuccess(event.livePerformance)
+6. delta = GarmentDeltaCalculator.calculate(profile, performanceValue, isSuccess)
+7. Apply delta to completionPercent — clamp to 0.0–100.0
+8. Save updated profile via GarmentRepository
+9. Update live CommitmentWeeklyProgress record
+10. Publish GarmentUpdatedEvent
 ```
 
-Idempotent — checks `lastUpdatedDate` before running.
-
-Frozen commitments are skipped — no garment update when `snapshot.commitmentState == frozen`.
+**Why the frozen check is a safety net, not the primary gate:** when a commitment is frozen, the pending instance is cleared but the instance still closes unconditionally on the Heartbeat tick. `PerformanceUpdatedEvent` fires on `InstanceCreatedEvent` and `ActivityEvent` — neither of which fire for frozen commitments once the pending instance is gone. The frozen check exists as a defensive guard in case a stray performance event arrives for a frozen commitment. It is not the primary mechanism.
 
 ### `InstancePermanentlyDeletedEvent` → `_onCommitmentDeleted(event)`
 
@@ -72,7 +72,9 @@ Deletes the `GarmentProfile` and all `CommitmentWeeklyProgress` records for this
 
 ### `WeekEndedEvent` → `_onWeekEnded(event)`
 
-Seals the live `CommitmentWeeklyProgress` record for all commitments. Sets `isCurrentWeek: false`. Creates new live records for the coming week.
+Seals the live `CommitmentWeeklyProgress` record for all commitments — sets `isCurrentWeek: false` so the record becomes an immutable historical fact. Creates a new live record for the coming week.
+
+This is the only reason Garment subscribes to `WeekEndedEvent` — the garment delta calculation itself happens live on `PerformanceUpdatedEvent`, not here.
 
 ---
 
@@ -125,19 +127,20 @@ The running delta for the current week. Used by the garment display to show "Thi
 ## Rules
 
 - The only writer of `GarmentProfile` and `CommitmentWeeklyProgress`
-- Never reads `CommitmentDefinition` directly for ongoing updates — all needed data comes from instance events
+- Never reads `CommitmentDefinition` directly for ongoing updates — all needed data comes from events
 - Reads definition once at garment creation — for `GarmentTypeResolver` input only
 - All four resolver/calculator functions are injected — never instantiated inside the service
-- Frozen commitments skipped — no garment update when `snapshot.commitmentState == frozen`
+- Garment updates are idempotent — `lastUpdatedDate` prevents double-application on the same day
+- Frozen commitments skipped — defensive check in `_onPerformanceUpdated`
 - `GarmentRenderer` is used only by `component_garment_display` — never called by this service
 
 ---
 
 ## Dependencies
 
-- `CommitmentService` — subscribes to `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`, `WeekEndedEvent`
+- `CommitmentService` — subscribes to `InstanceCreatedEvent`, `InstancePermanentlyDeletedEvent`, `WeekEndedEvent`
+- `PerformanceService` — subscribes to `PerformanceUpdatedEvent`; calls `isWindowSuccess()`
 - `GarmentRepository` — reads and writes `GarmentProfile` and `CommitmentWeeklyProgress`
 - `CommitmentService.getDefinition()` — reads definition once at garment creation
-- `PerformanceService.isWindowSuccess()` — window classification for delta calculation
 - `AcceleratorService.getMultiplier()` — called by `_getPerformance()` when `garmentUsesAccelerator` is true. `AcceleratorService` calls `StreakService.getStreakRecord()` directly — Streak is below Garment in the chain, a valid downward call
 - `GarmentTypeResolver`, `ThreadColorResolver`, `GarmentDeltaCalculator` — injected

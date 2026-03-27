@@ -1,8 +1,8 @@
-**File Name**: service_accelerator **Feature**: Garment **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: service_accelerator **Feature**: Garment **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
-**Purpose:** maintains the acceleration multiplier for each commitment's garment. Reads streak data from `StreakService` — an independent feature below Garment in the dependency chain — when a window closes and adjusts the multiplier based on the current streak. Exposes one function that `GarmentService` calls to get the current multiplier. Internal to the Garment feature.
+**Purpose:** maintains the acceleration multiplier for each commitment's garment. Reads streak data from `StreakService` — an independent feature below Garment in the dependency chain — on each garment update and adjusts the multiplier based on the current streak. Exposes one function that `GarmentService` calls to get the current multiplier. Internal to the Garment feature.
 
 ---
 
@@ -12,7 +12,7 @@
 
 **Why the accelerator lives in Garment, not Streak.** The accelerator is a Garment concern — it interprets streak data to modify garment growth speed. Streak defines and measures streaks. What those numbers mean for the garment is Garment's decision.
 
-**Why the adjustment formula is deferred.** The structure is ready: one multiplier per commitment, `_adjustMultiplier()` is the single function that changes it. The formula inside is the only thing unspecified — deliberately left open until real user data is available.
+**Why the adjustment formula is deferred.** The structure is ready: one multiplier per commitment, `_adjustMultiplier()` is the single function that changes it. The formula inside is deliberately left open until real user data is available after launch.
 
 ---
 
@@ -35,7 +35,7 @@ acceleratorCeiling: 1.50
 
 ### `getMultiplier(definitionId)` → double
 
-Called by `GarmentService._getPerformance()` on window close.
+Called by `GarmentService._getPerformance()` on each performance update.
 
 ```
 if AppConfig.garmentUsesAccelerator == false:
@@ -52,22 +52,17 @@ saveRecord(record)
 return record.multiplierValue
 ```
 
+The `AcceleratorRecord` is created lazily on first call for a given commitment — not on a subscription event. `_getOrCreateRecord` returns the existing record if one exists, or creates one with `multiplierValue: 1.0` if not.
+
 ---
 
 ## Pure Functions
 
 ### `_adjustMultiplier(record, currentStreak)` → AcceleratorRecord
 
-```
-// Formula deferred — to be designed from real usage data.
-// Positive currentStreak → increase multiplier
-// Negative currentStreak → decrease multiplier
-// Result clamped to [acceleratorFloor, acceleratorCeiling]
+Adjusts the multiplier based on the current streak value. Positive streak increases the multiplier toward `acceleratorCeiling`. Negative streak decreases it toward `acceleratorFloor`. Result clamped to `[acceleratorFloor, acceleratorCeiling]`.
 
-newValue = _formula(record.multiplierValue, currentStreak)
-record.multiplierValue = newValue.clamp(AppConfig.acceleratorFloor, AppConfig.acceleratorCeiling)
-return record
-```
+The specific formula is deferred — it will be designed from real usage data after launch. `_adjustMultiplier()` is the single location where the formula lives.
 
 ### `_getOrCreateRecord(definitionId)` → AcceleratorRecord
 
@@ -77,7 +72,7 @@ Reads from repository. If null, creates with `multiplierValue: 1.0`.
 
 ## Events Subscribed
 
-### `InstancePermanentlyDeletedEvent` → `_onDeleted(event)`
+### `InstancePermanentlyDeletedEvent` (Commitment) → `_onDeleted(event)`
 
 Deletes the `AcceleratorRecord` for this `definitionId`.
 
@@ -86,24 +81,25 @@ Deletes the `AcceleratorRecord` for this `definitionId`.
 ## Rules
 
 - Internal to Garment — no feature outside Garment calls this service
-- Calls `StreakService` directly — valid downward call since Streak sits below Garment
+- Calls `StreakService.getStreakRecord()` directly — valid downward call since Streak sits below Garment
 - Never calls `AchievementService` — same-level dependency violation
-- `getMultiplier()` returns 1.0 when `garmentUsesAccelerator` is false
+- `getMultiplier()` returns 1.0 when `garmentUsesAccelerator` is false or no streak record exists
 - `_adjustMultiplier()` is a pure function — no side effects
+- Records created lazily on first `getMultiplier()` call — no separate initialization event
 
 ---
 
 ## Dependencies
 
+- `CommitmentService` — subscribes to `InstancePermanentlyDeletedEvent`
 - `StreakService.getStreakRecord()` — current streak per commitment
 - `AcceleratorRepository` — reads and writes `AcceleratorRecord`
 - `AppConfig` — `acceleratorFloor`, `acceleratorCeiling`, `garmentUsesAccelerator`
-- EventBus — subscribes to `InstancePermanentlyDeletedEvent`
 
 ---
 
 ## Later Improvements
 
-**Adjustment formula.** Design after real user data is available. The `_adjustMultiplier()` function is the single place to implement it.
+**Adjustment formula.** Design after real user data is available. `_adjustMultiplier()` is the single place to implement it.
 
 **Asymmetric recovery rate.** Make the accelerator recover faster than it declines. Requires separate `acceleratorUpStep` and `acceleratorDownStep` constants in `AppConfig`.
