@@ -248,16 +248,6 @@ No public events published. Streak changes are internal. Achievement detection (
 
 ---
 
-### Analytics
-
-**Public functions:** `computeCommitmentFacts()`, `computeWeeklyFacts()`, `computeDayFacts()`
-
-No events subscribed. No events published. Pure computation on demand.
-
-**Calls directly:** `ActivityService.getEntriesForPeriod()`, `ActivityService.getEntriesForDay()`, `PerformanceService.getPerformanceForPeriod()`, `PerformanceService.getDayScore()`, `CommitmentIdentityService.getInstances()`
-
----
-
 ### Progression
 
 **Internal services:** `ScoringService` (`AchievementEarnedEvent` → `PointsAwardedEvent`), `ProgressionService` (`PointsAwardedEvent` → `LevelReachedEvent`)
@@ -352,13 +342,3 @@ Top-of-chain feature. Depends on Commitment and Performance via `UserCapabilityS
 **Before modifying a locked feature:** treat as a breaking change. Review all consumers.
 
 **Before reading user preferences in any feature:** call `UserCoreService` — never `UserSettingsService`. The only exception is `UserSettingsService` itself.
-
----
-
-## Later Improvements — Planned Features
-
-These features were designed, evaluated, and deliberately deferred. When added, each slots into the chain without modifying any existing feature.
-
-**Rewards feature.** A `RewardService` that evaluates sustained rolling performance (e.g. 30 days above threshold) and calls `AchievementService.addAchievement()` with `type: reward, subtype: periodicReward`. Sits above Achievements, below Garment. The `periodicReward` enum value and `AppConfig` point entry are already present — adding this feature requires zero changes to `AchievementService`, `ScoringService`, or the achievements screen.
-
-Position in chain when added: above Achievements, alongside Streak and Cups.
