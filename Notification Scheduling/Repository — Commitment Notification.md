@@ -1,4 +1,4 @@
-**File Name**: repository_scheduled_notification **Feature**: Notification Scheduling **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: repository_commitment_notifications **Feature**: CommitmentNotifications **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 

@@ -1,32 +1,22 @@
-**File Name**: service_notification_scheduling **Feature**: Notification Scheduling **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: service_commitment_notifications **Feature**: CommitmentNotifications **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** maintains a set of pending notifications for commitment windows and fires them at the right time. Watches instance changes to keep records current. Watches Heartbeat to fire due records. Calls `NotificationService` for delivery. Has no knowledge of scoring, performance, or any other domain concept.
-
----
-
-## Why a Dedicated Feature
-
-Notification timing depends on instance state — window boundaries, warning offsets, commitment status. Commitment owns instances. Heartbeat owns time signals. Neither should own notification scheduling logic.
-
-This feature sits above both: it reacts to instance changes to maintain its records, and watches Heartbeat to fire them. It is fully removable — deleting it stops notifications from firing, nothing else is affected.
+**Purpose:** maintains pending notification records for commitment windows and fires them at the right time. Watches instance events to keep records current. Watches Heartbeat to fire due records. Has no knowledge of scoring, performance, or any other domain concept.
 
 ---
 
 ## Watching Instances
 
-The service subscribes to instance change events from `CommitmentService`.
+Subscribes to `InstanceCreatedEvent`, `InstanceUpdatedEvent`, and `InstancePermanentlyDeletedEvent` from `CommitmentIdentityService`.
 
-**On instance created or updated:**
+**On `InstanceCreatedEvent` or `InstanceUpdatedEvent`:**
 
 1. Delete all existing records for that `definitionId`
 2. Re-evaluate the instance
 3. If `commitmentState == active` and the window has not yet passed, write fresh records
 
-This replace-all approach ensures stale notifications never survive a change. A window time change, a freeze, a completion — all result in a clean slate followed by correct re-evaluation. Patching individual records on specific changes would require tracking every possible state transition — replace-all is simpler and correct.
-
-**On instance deleted:**
+**On `InstancePermanentlyDeletedEvent`:**
 
 Delete all records for that `definitionId`. No re-evaluation.
 
@@ -54,7 +44,9 @@ Warning lead time formatted via `TemporalHelper`:
 - > 60 min → rounded to nearest half hour: "about 2 hours"
     
 - 15–60 min → rounded to nearest 5 minutes: "30 minutes"
+    
 - < `AppConfig.minimumWarningLeadMinutes` → record not written
+    
 
 ### Checkin notification
 
@@ -72,18 +64,16 @@ Both records are written only when `commitmentState == active`.
 
 ## Watching Heartbeat
 
-The service subscribes to `Heartbeat.shortIntervalTick`. On each tick:
+Subscribes to `Heartbeat.shortIntervalTick`. On each tick:
 
 1. Query `getDue(now)` for all records with `notificationTimestamp <= now`
 2. For each due record: call `NotificationService.push(message, route)`, then delete the record
-
-**Deleting the record after firing is the idempotency mechanism.** The next tick finds no record — the same notification cannot fire twice. No TickGuard or separate tracking is needed.
 
 ---
 
 ## Dependencies
 
-- `CommitmentService` — subscribes to instance change events
+- `CommitmentIdentityService` — subscribes to `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`
 - `ScheduledNotificationRepository` — reads and writes pending records
 - `Heartbeat` — subscribes to `shortIntervalTick`
 - `NotificationService` — delivers fired notifications
@@ -94,12 +84,9 @@ The service subscribes to `Heartbeat.shortIntervalTick`. On each tick:
 
 ## Rules
 
-- Never fires for frozen, completed, or deleted commitments
-- On any instance change: clear all records for that commitment first, then re-evaluate — never patch individual records
-- Record deletion after firing is the only idempotency needed — no TickGuard required
-- Message text is fully constructed here — `NotificationService` receives final strings
-- Notification IDs are deterministic — constructed from `definitionId`, window date, and type
-- Never calls `ActivityService`, `PerformanceService`, or any scoring feature
+- Warning notification skipped if `activityWindow.warningEnabled == false` or lead time is below `AppConfig.minimumWarningLeadMinutes`
+- Both notification records written only when `commitmentState == active`
+- All functions return `Result<T>` — no raw exceptions
 
 ---
 
