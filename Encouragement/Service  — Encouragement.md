@@ -125,17 +125,17 @@ return subtype in {threeDay, fiveDay, sevenDay, tenDay, fourteenDay}
 
 ### `_levelOneLiner(level)` → String
 
-Static map from level index to flavor text. Display copy owned by Encouragement.
+Static map from level index to flavor text. Must match `language_guide` exactly — that doc is the authoritative source for all level copy.
 
 ```
-0 → "Your journey begins."
-1 → "The loom is warming up."
-2 → "Pattern forming."
+0 → "Every master weaver was an apprentice one day."
+1 → "The first threads are in place. The craft has begun."
+2 → "The pattern is starting to show."
 3 → "Consistent craft, recognizable work."
-4 → "The craft shows in everything you do."
-5 → "This is what mastery looks like."
-6 → "You keep the loom running."
-7 → "The final thread, perfectly placed."
+4 → "Mastery is taking shape, thread by thread."
+5 → "Rare discipline. The loom obeys."
+6 → "You tend the craft itself now."
+7 → "Twenty years of discipline — thread by thread."
 ```
 
 ---

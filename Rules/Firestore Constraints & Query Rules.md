@@ -1,8 +1,6 @@
+**File Name**: firestore_constraints **Phase**: applies from Phase 1 design · implemented in Phase 3 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
-**Created**: 15-Mar-2026
-**Modified**: -
-**Phase:** applies from Phase 1 design · implemented in Phase 3
-**Folder**: Rules
+---
 
 **Purpose:** documents the constraints that apply to FirestoreRepository. These constraints must be considered from Phase 1 — the Drift schema and repository interface must be designed to work within these limits so migration to Firestore has no surprises.
 
@@ -18,11 +16,11 @@ Design every repository query as if Firestore is already the backend.
 
 ## Query Constraints
 
-**One range filter per query.** A Firestore query can have only one field with a range operator (`<`, `<=`, `>`, `>=`, `!=`). Your date range queries use one range on `windowStart` — compatible. Any additional filtering (by `status`, by `definitionId` equality) is done in Dart after fetching, never added as a second range to the query.
+**One range filter per query.** A Firestore query can have only one field with a range operator (`<`, `<=`, `>`, `>=`, `!=`). Date range queries use one range on `windowStart` or `createdAt` — compatible. Any additional filtering (by `status`, by `definitionId` equality) is done in Dart after fetching, never added as a second range to the query.
 
 **No server-side aggregations.** No SUM, AVG, COUNT in Firestore queries. All aggregations — scores, averages, streak counts — are computed in Dart by the service layer after fetching documents.
 
-**No joins.** Each collection is queried independently. Relations between collections (e.g. instances → definitions) are resolved in Dart, never in the query.
+**No joins.** Each collection is queried independently. Relations between collections are resolved in Dart, never in the query.
 
 **Equality filters before range filters.** When combining equality and range filters, equality fields must come first in the index. Example: `definitionId == x AND windowStart >= from` — correct order.
 
@@ -46,15 +44,16 @@ This means every query has at most one range filter — zero composite index cos
 
 ## Required Composite Indexes
 
-Only three composite indexes needed for the entire app:
+Only two composite indexes needed for the entire app:
 
 ```
 instances:   definitionId ASC, windowStart ASC
-logEntries:  instanceId ASC, loggedAt ASC
 logEntries:  definitionId ASC, loggedAt ASC
 ```
 
 All other queries use single-field filters — Firestore handles those automatically with no composite index needed.
+
+`LogEntry` is keyed by `definitionId`, not `instanceId` — the index reflects this. There is no `instanceId` on `LogEntry`.
 
 ---
 
@@ -62,7 +61,7 @@ All other queries use single-field filters — Firestore handles those automatic
 
 - Always enabled — never disable
 - Streams read from local cache first, sync with server in background
-- If a listener is disconnected for more than 30 minutes, Firestore charges for a full re-read on reconnect — this is acceptable for a daily-use app
+- If a listener is disconnected for more than 30 minutes, Firestore charges for a full re-read on reconnect — acceptable for a daily-use app
 - All analytical reads go against the local cache — never trigger a direct server read for analytics
 
 ---
@@ -71,9 +70,8 @@ All other queries use single-field filters — Firestore handles those automatic
 
 Use batched writes for all multi-document operations. Firestore allows up to 500 operations per batch.
 
-- Migration writes: batch in groups of 500, ramp up gradually (500/50/5 rule)
+- Migration writes: batch in groups of 500, ramp up gradually
 - Never write more than 500 operations per second to a new collection
-- Instance generation (2 days ahead): batch write all new instances in one operation
 
 ---
 
@@ -93,6 +91,6 @@ Queries must always match security rule constraints — Firestore rejects querie
 
 ## Document Size
 
-Keep documents small — under 100KB each. Your models are well within this limit. Log entries and instances are the smallest documents. Commitment definitions are slightly larger but still minimal.
+Keep documents small — under 100KB each. All models are well within this limit. Log entries and instances are the smallest documents. Commitment definitions are slightly larger but still minimal.
 
-Do not store arrays that grow unboundedly inside documents. Context tags are small fixed lists — fine. Never store all log entries inside an instance document.
+Do not store arrays that grow unboundedly inside documents. Never store all log entries inside an instance document.

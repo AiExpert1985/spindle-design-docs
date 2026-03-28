@@ -1,7 +1,6 @@
+**File Name**: language_guide **Phase**: All phases **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
-**Created**: 15-Mar-2026 
-**Modified**: 18-Mar-2026 
-**Applies to:** all phases.
+---
 
 **Purpose:** defines the vocabulary and tone used throughout Spindle. Every string in the app — buttons, labels, notifications, messages — must follow this guide. Consistency builds the product identity.
 
@@ -21,27 +20,23 @@ Spindle has two distinct vocabularies that must never be mixed:
 
 ## Internal Vocabulary
 
-These terms are used in all code and documentation. They do not appear in the UI.
-
 |Internal term|Meaning|
 |---|---|
 |Commitment|A habit the user is tracking — do or avoid|
 |CommitmentDefinition|The template/blueprint for a commitment|
 |CommitmentInstance|One occurrence of a commitment in a time window|
 |LogEntry|One recorded action against an instance|
-|progressPercent|Numeric completion percentage of an instance|
-|garmentCompletionPercent|The garment's visual completion, separate from progressPercent|
+|livePerformance|Numeric completion percentage of an instance|
+|completionPercent|The garment's visual completion, separate from livePerformance|
 |isFrozen|Whether a commitment is paused|
 |isCompleted|Whether a commitment is permanently finished|
-|streak|Consecutive kept days counter|
+|streak|Consecutive kept windows counter|
 |WeeklyCup|The reward record for a strong week|
 |ProgressionProfile|The user's level and point accumulation record|
 
 ---
 
 ## UI Vocabulary
-
-These terms appear in all user-facing strings. They map to the internal terms above.
 
 |UI term|Maps to|Usage context|
 |---|---|---|
@@ -57,7 +52,7 @@ These terms appear in all user-facing strings. They map to the internal terms ab
 |How you're weaving|Analytics or performance|Section headers|
 |Weave review|AI report|AI feature label|
 |Understand this pattern|Deep AI analysis|AI feature trigger|
-|Frozen|isFrozen: true|Status label — same word, clear enough|
+|Frozen|isFrozen: true|Status label|
 |Complete|isCompleted: true|Status label|
 |Rope|All commitments combined, overall progress|Dashboard, weekly summary|
 
@@ -77,13 +72,11 @@ Both internal and UI terms are correct in their respective contexts. They must n
 
 ## Garment Vocabulary
 
-The garment is the visual representation of a single commitment's progress on the detail screen. These terms apply specifically to garment-related copy.
-
 |Moment|Copy|
 |---|---|
 |Garment gaining threads (do habit, good day)|"Your weave grew stronger."|
 |Garment losing threads (avoid habit, good day)|"Another thread unraveled."|
-|Garment decay after 2 failed days|No copy — silence. The garment visually reflects the change.|
+|Garment decay after 2 failed days|No copy — silence. The garment reflects the change visually.|
 |Garment at 100% (do habit complete)|"The thread holds."|
 |Garment at 0% (avoid habit grip minimal)|"The grip is gone. Keep the thread loose."|
 |Garment highlighted new threads (Phase 3)|"This week's work."|
@@ -94,9 +87,9 @@ Decay is never announced. The garment reflects it silently — consistent with t
 
 ## Weaver Level Vocabulary
 
-Level names and one-liners are fixed. They are used verbatim — never improvised or paraphrased.
+Level names and one-liners are the authoritative source. They are used verbatim in the app — never improvised or paraphrased. `EncouragementService._levelOneLiner()` must match this table exactly.
 
-|Level|Name|One line|
+|Level|Name|One-liner|
 |---|---|---|
 |0|Apprentice|Every master weaver was an apprentice one day.|
 |1|Weaver|The first threads are in place. The craft has begun.|
@@ -107,7 +100,7 @@ Level names and one-liners are fixed. They are used verbatim — never improvise
 |6|Loom Keeper|You tend the craft itself now.|
 |7|Penelope|Twenty years of discipline — thread by thread.|
 
-Level-up notification copy is also fixed — see `service_progression.md` for the exact string per level.
+Level-up display copy (overlay and notification) is owned by `EncouragementService` — it reads the one-liner from a static map that mirrors this table. Any change to level copy must update both this doc and the static map in `EncouragementService._levelOneLiner()`.
 
 ---
 
