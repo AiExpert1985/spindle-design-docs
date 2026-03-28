@@ -1,16 +1,8 @@
-**File Name**: model_log_entry **Feature**: Activity **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: model_log_entry **Feature**: Activity **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
 **Purpose:** one record of user activity against a commitment. Entries may be corrected within the backfill window but are read-only beyond it.
-
----
-
-## Design: definitionId + date, No instanceId
-
-`LogEntry` carries `definitionId` and `loggedAt` — not `instanceId`. `PerformanceService` identifies the correct instance by finding the instance whose `regenerationWindow` contains `loggedAt` for the given commitment.
-
-This decouples the log from instance lifecycle — if an instance is cleared and recreated, existing logs are still correctly attributed by date.
 
 ---
 
@@ -25,8 +17,6 @@ Zero is never written. Absence of a log is the signal for zero activity on a giv
 ## Backfill Window
 
 Logs may only be recorded or edited for today and up to `AppConfig.maxLogBackfillDays` (default: 7) days in the past. Future logs are never accepted. Entries older than the backfill window become read-only.
-
-The window exists to allow reasonable corrections — travel, illness, forgetting to log — while preventing unlimited retroactive changes that would corrupt scores and streaks. Attempts to write outside the window return a `Failure` result and the UI informs the user.
 
 ---
 
@@ -61,9 +51,6 @@ LogEntry
 - `updatedAt` is always set — initialized to `createdAt` on creation, updated on edit
 - Entries within the backfill window may be edited (value and note only) or deleted
 - Entries older than the backfill window are read-only
-- Bulk deletion only on permanent commitment deletion
-- No `instanceId` — instance identified at read time by `definitionId + loggedAt` date
-- Owned by `ActivityRepository` only
 
 ---
 

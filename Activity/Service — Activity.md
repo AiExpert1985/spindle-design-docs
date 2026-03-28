@@ -1,18 +1,8 @@
-**File Name**: service_activity **Feature**: Activity **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: service_activity **Feature**: Activity **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** records, edits, and deletes user activity log entries. Publishes one event type for all three operations. All downstream reactions happen through subscriptions — this service calls nothing after writing.
-
----
-
-## Independence
-
-`ActivityService` is almost entirely self-contained. It receives requests from the user, validates the date, writes the entry, and publishes one event. It calls no other service and checks no state from other features.
-
-The one exception: `ActivityService` subscribes to `InstancePermanentlyDeletedEvent` from `CommitmentService` to delete its own log entries when a commitment is permanently removed. `ActivityService` owns its own data and cleans it up when the parent commitment is gone.
-
-Logging is allowed regardless of commitment state — frozen, completed, or active. The backfill window is the only gate.
+**Purpose:** records, edits, and deletes user activity log entries. Validates the backfill window before every write. Publishes one event type for all three operations. Calls no other service after writing — all downstream reactions happen through subscriptions.
 
 ---
 
@@ -26,7 +16,7 @@ ActivityEvent
   value: double?            // null on deleted
 ```
 
-Published after every successful write, edit, or delete. `PerformanceService` subscribes and recalculates `livePerformance` for the matching instance on every type. `Encouragement` subscribes to `created` only for immediate log feedback.
+Published after every successful write, edit, or delete.
 
 ---
 
@@ -89,7 +79,7 @@ All log entries in an arbitrary date range. Used by Analytics.
 
 ## Event Subscriptions
 
-### `InstancePermanentlyDeletedEvent` (Commitment)
+### `InstancePermanentlyDeletedEvent` (CommitmentIdentityService)
 
 Deletes all log entries for `event.definitionId`. `ActivityService` owns its own data and cleans it up when the commitment is permanently removed.
 
@@ -98,7 +88,7 @@ Deletes all log entries for `event.definitionId`. `ActivityService` owns its own
 ## Dependencies
 
 - `ActivityRepository` — log entry storage
-- `CommitmentService` — subscribes to `InstancePermanentlyDeletedEvent`
+- `CommitmentIdentityService` — subscribes to `InstancePermanentlyDeletedEvent`
 - `AppConfig` — `maxLogBackfillDays`
 
 ---
@@ -109,6 +99,4 @@ Deletes all log entries for `event.definitionId`. `ActivityService` owns its own
 - `loggedAt` always passed by caller in `recordEntry` — never defaulted to `now` internally
 - `loggedAt` immutable after creation — `editEntry` never changes it
 - Backfill window enforced on all three write functions — out-of-window attempts return `Failure`
-- No commitment state check — logging allowed regardless of commitment state
-- No calls to any other service after writing — all downstream reactions through `ActivityEvent`
 - All aggregations computed in Dart after fetching raw records — never delegated to the repository
