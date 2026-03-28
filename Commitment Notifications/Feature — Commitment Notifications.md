@@ -2,8 +2,6 @@
 
 ---
 
-# Feature — CommitmentNotifications
-
 CommitmentNotifications watches commitment windows and fires timely notifications to keep the user aware of approaching and closing windows — without knowing anything about performance, scoring, or what the user actually logged.
 
 ---
