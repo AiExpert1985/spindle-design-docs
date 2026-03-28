@@ -13,10 +13,12 @@
 │  ←  YOUR ACHIEVEMENTS                   │
 │                                         │
 │  [ All ] [ Cups ] [ Streaks ] [Garment] │
-│          [ Milestones ] [ Rewards ]     │
 │                                         │
 │  💎  Diamond cup                        │
 │      Week of Mar 17                     │
+│                                         │
+│  🏆  New personal best — 14 days        │
+│      Morning Walk · Mar 15              │
 │                                         │
 │  🥇  Morning Walk — 7 day streak        │
 │      Mar 14                             │
@@ -28,8 +30,6 @@
 │                                         │
 │  🥉  Read Daily — 3 day streak          │
 │      Feb 28                             │
-│                                         │
-│  🎁  Periodic reward · Feb 15           │
 └─────────────────────────────────────────┘
 ```
 
@@ -37,25 +37,75 @@
 
 ## Filter Chips
 
-Maps to `AchievementType` enum values. Tapping a chip calls: `AchievementService.getAchievements(from, to, type: selected)`
+Maps to `AchievementType` enum values. Tapping a chip calls `AchievementService.getAchievements(from, to, type: selected)`.
 
-Default: All. Default period: last 90 days. Expands backward in 90-day increments on scroll.
+Current chips: All · Cups · Streaks · Garment.
+
+Default: All. Default period: last 90 days. Expands backward in 90-day increments on scroll to the bottom.
 
 ---
 
 ## Achievement Rows
 
-Each row: icon + label + date. Icon and label derived from `AchievementSubtype`. One display entry per subtype value — defined here. Tap → detail sheet.
+Each row: icon + label + date. Icon and label derived from `AchievementSubtype` — one display entry per subtype value, defined here. Tap → detail sheet.
 
-**Cup:** "💎 Diamond cup · Week of Mar 17" **Milestone:** "🥇 Morning Walk — 7 day streak · Mar 14" **Global best streak:** "🏆 Morning Walk — new personal best · Mar 14" **Garment:** "🧣 Morning Walk — garment complete · Mar 12" **Reward:** "🎁 Periodic reward · Feb 15"
+|Subtype|Icon|Label format|
+|---|---|---|
+|bronzeCup|🥉|"Bronze cup · Week of [date]"|
+|silverCup|🥈|"Silver cup · Week of [date]"|
+|goldCup|🥇|"Gold cup · Week of [date]"|
+|diamondCup|💎|"Diamond cup · Week of [date]"|
+|threeDay|🥉|"[name] — 3 day streak"|
+|fiveDay|🥈|"[name] — 5 day streak"|
+|sevenDay|🥇|"[name] — 7 day streak"|
+|tenDay|🏆|"[name] — 10 day streak"|
+|fourteenDay|💎|"[name] — 14 day streak"|
+|globalBestStreak|🏆|"New personal best — [n] days · [name]"|
+|garmentCompleted|🧣|"[name] — garment complete"|
 
 ---
 
 ## Detail Sheet
 
-Tap any row → bottom sheet. All detail data fetched via `sourceId` from `AchievementRecord` — calls `AchievementService` read functions only. No other feature calls needed.
+Tap any row → bottom sheet. All data fetched from `AchievementService` — no other feature calls needed.
 
-**Cup detail:** level name, week, score from `AchievementService.getCupHistory()` **Streak detail:** streak count, current streak, best from `AchievementService.getStreakAchievements()` **Global best:** commitment name, days, date from `AchievementService.getBestStreak()` **Garment:** commitment name, date from `AchievementRecord` fields directly **Reward:** period, average score from `sourceId` lookup
+**Cup detail:**
+
+```
+💎 Diamond cup
+Week of Mar 17 · Score: 96%
+```
+
+Data: `AchievementService.getCupHistory(from, to)` filtered by `sourceId`.
+
+**Streak milestone detail:**
+
+```
+🥇 7-day streak
+Morning Walk · Mar 14
+Current streak: 9 days
+Best ever: 14 days
+```
+
+Data: `AchievementService.getStreakAchievements(definitionId, from, to)`.
+
+**Global best detail:**
+
+```
+🏆 New personal best — 14 days
+Morning Walk · Mar 15
+```
+
+Data: `AchievementService.getBestStreak(definitionId)`.
+
+**Garment detail:**
+
+```
+🧣 Garment complete
+Morning Walk · Mar 12
+```
+
+Data: `AchievementRecord` fields directly — `definitionId` and `createdAt`.
 
 ---
 
@@ -67,10 +117,16 @@ Accessed from: Your Record screen · achievement notification tap. Back → prev
 
 ## Data Sources
 
-| Data             | Source                                                             |
-| ---------------- | ------------------------------------------------------------------ |
-| Achievement list | `AchievementService.getAchievements(from, to, type?)`              |
-| Live updates     | `AchievementService.watchAchievements(from, to)` — stream          |
-| Cup detail       | `AchievementService.getCupHistory(from, to)`                       |
-| Streak detail    | `AchievementService.getStreakAchievements(definitionId, from, to)` |
-| Global best      | `AchievementService.getBestStreak()`                               |
+|Data|Source|
+|---|---|
+|Achievement list|`AchievementService.getAchievements(from, to, type?)`|
+|Live updates|`AchievementService.watchAchievements(from, to)` — stream|
+|Cup detail|`AchievementService.getCupHistory(from, to)`|
+|Streak detail|`AchievementService.getStreakAchievements(definitionId, from, to)`|
+|Global best detail|`AchievementService.getBestStreak(definitionId?)`|
+
+---
+
+## Later Improvements
+
+**Rewards filter chip.** When the Rewards feature ships, a "Rewards" filter chip is added. `AchievementService` already stores reward records — the chip just calls `getAchievements(from, to, type: reward)`. No other change needed.

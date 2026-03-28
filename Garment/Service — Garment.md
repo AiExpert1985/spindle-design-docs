@@ -2,9 +2,7 @@
 
 ---
 
-**Purpose:** owns the complete lifecycle of garment profiles. Initializes garments when commitments are created, updates them live as performance changes, and exposes read functions to the presentation layer. The single writer of `GarmentProfile` and `CommitmentWeeklyProgress`.
-
-Fully independent — subscribes to events from below, writes nothing outside its own models, and can be removed without affecting any other feature.
+**Purpose:** owns the complete lifecycle of garment profiles. Initializes garments when commitments are created, updates them live as performance changes, detects garment achievement moments, and exposes read functions to the presentation layer. The single writer of `GarmentProfile` and `CommitmentWeeklyProgress`.
 
 ---
 
@@ -16,11 +14,11 @@ GarmentTypeResolver (abstract)
   → AIGarmentTypeResolver             // AI-assisted, Pro/Premium only (later)
 
 ThreadColorResolver (abstract)
-  → RandomVividColorResolver          // curated random palette from vivid color set
+  → RandomVividColorResolver          // curated random palette
   → UserChosenColorResolver           // user picks colors (later)
 
 GarmentDeltaCalculator (abstract)
-  → DefaultGarmentDeltaCalculator     // rule-based: contribution + decay + streak bonus
+  → DefaultGarmentDeltaCalculator     // contribution + decay + streak bonus
 
 GarmentRenderer (abstract)
   → SimpleThreadRenderer              // flat thread fill, visible strands
@@ -36,7 +34,7 @@ Creates a `GarmentProfile` for this commitment:
 
 1. `GarmentTypeResolver.resolve(definition)` → `garmentType`
 2. `ThreadColorResolver.resolve(definitionId)` → `threadColors`
-3. Creates profile with `completionPercent` at starting value — Do: 0.0%, Avoid: 100.0%
+3. Creates profile — Do: `completionPercent: 0.0`, Avoid: `completionPercent: 100.0`
 
 Idempotent — exits silently if profile already exists.
 
@@ -46,30 +44,18 @@ Idempotent — exits silently if profile already exists.
 1. Read current GarmentProfile
 2. Check lastUpdatedDate — if already updated today, exit (idempotent)
 3. if snapshot.commitmentState == frozen: exit  // safety net
-4. performanceValue = _getPerformance(event.definitionId, event.livePerformance)
-5. isSuccess = PerformanceService.isWindowSuccess(event.livePerformance)
-6. delta = GarmentDeltaCalculator.calculate(profile, performanceValue, isSuccess)
-7. previousPercent = profile.completionPercent
-8. Apply delta — clamp to 0.0–100.0
+4. previousPercent = profile.completionPercent
+5. performanceValue = _getPerformance(event.definitionId, event.livePerformance)
+6. isSuccess = PerformanceService.isWindowSuccess(event.livePerformance)
+7. delta = GarmentDeltaCalculator.calculate(profile, performanceValue, isSuccess)
+8. Apply delta — clamp completionPercent to 0.0–100.0
 9. Save updated profile
 10. Update live CommitmentWeeklyProgress record
 11. Publish GarmentUpdatedEvent
-12. Check for completion transition — call _onGarmentCompleted if newly complete
+12. _detectAchievements(profile, previousPercent)
 ```
 
 **Why the frozen check is a safety net:** `PerformanceUpdatedEvent` only fires from `InstanceCreatedEvent` and `ActivityEvent` — neither fires for frozen commitments once the pending instance is gone. The check is defensive.
-
-**Completion detection (step 12):**
-
-```
-isComplete = newPercent >= 100.0 (Do) or newPercent <= 0.0 (Avoid)
-wasComplete = previousPercent >= 100.0 (Do) or previousPercent <= 0.0 (Avoid)
-
-if isComplete and not wasComplete:
-  _onGarmentCompleted(profile)
-```
-
-Only fires on transition from incomplete to complete — never re-fires.
 
 ### `InstancePermanentlyDeletedEvent` → `_onCommitmentDeleted(event)`
 
@@ -91,14 +77,27 @@ if AppConfig.garmentUsesAccelerator == false:
 return AcceleratorService.getMultiplier(definitionId) * livePerformance
 ```
 
-### `_onGarmentCompleted(profile)`
+### `_detectAchievements(profile, previousPercent)`
 
-Called when garment transitions from incomplete to complete.
+Central achievement detection for the Garment feature. Called after every garment update. Checks all garment achievement conditions and calls `_addAchievement()` for each that is met. Adding a new garment achievement (e.g. fortify phase completion) means adding one check here — nothing else changes.
+
+```
+// completion detection — fires only on transition from incomplete to complete
+isComplete = profile.completionPercent >= 100.0 (Do) or <= 0.0 (Avoid)
+wasComplete = previousPercent >= 100.0 (Do) or <= 0.0 (Avoid)
+
+if isComplete and not wasComplete:
+  _addAchievement(AchievementSubtype.garmentCompleted, profile)
+```
+
+### `_addAchievement(subtype, profile)`
+
+Private. Constructs and submits an `AchievementRecord`.
 
 ```
 AchievementService.addAchievement(AchievementRecord(
   type: AchievementType.garment,
-  subtype: AchievementSubtype.garmentCompleted,
+  subtype: subtype,
   sourceId: profile.id,
   definitionId: profile.definitionId,
   createdAt: now,
@@ -129,7 +128,7 @@ Published after every garment update. Consumed by the presentation layer for liv
 
 Used by the commitment detail screen.
 
-### `getWeeklyProgress(definitionId, limit?)` → List < CommitmentWeeklyProgress > 
+### `getWeeklyProgress(definitionId, limit?)` → List<CommitmentWeeklyProgress>
 
 Current week first. Used by the weekly progress table.
 
@@ -143,9 +142,9 @@ Running delta for the current week.
 
 - The only writer of `GarmentProfile` and `CommitmentWeeklyProgress`
 - Reads definition once at garment creation — for `GarmentTypeResolver` input only
-- All four resolver/calculator functions are injected
+- All four resolver/calculator functions are injected — never instantiated inside the service
 - Garment updates are idempotent — `lastUpdatedDate` prevents double-application
-- `_onGarmentCompleted` fires only on transition — never re-fires for already-complete garments
+- `_detectAchievements` fires only on genuine transitions — idempotent by design
 - `GarmentRenderer` used only by `component_garment_display` — never called here
 
 ---
@@ -155,7 +154,7 @@ Running delta for the current week.
 - `CommitmentService` — subscribes to `InstanceCreatedEvent`, `InstancePermanentlyDeletedEvent`
 - `PerformanceService` — subscribes to `PerformanceUpdatedEvent`; calls `isWindowSuccess()`
 - `TemporalHelperService` — subscribes to `onWeekEnded`
-- `AchievementService.addAchievement()` — records garment completion achievement
+- `AchievementService.addAchievement()` — records garment achievements
 - `GarmentRepository` — reads and writes `GarmentProfile` and `CommitmentWeeklyProgress`
 - `CommitmentService.getDefinition()` — reads definition once at garment creation
 - `AcceleratorService.getMultiplier()` — via `_getPerformance()`. `AcceleratorService` calls `StreakService.getStreakRecord()` directly — Streak is below Garment, a valid downward call
@@ -165,6 +164,8 @@ Running delta for the current week.
 
 ## Later Improvements
 
-**Fortify phase.** After completion, the garment enters a fortify phase — the user keeps building and the garment gains a visual reinforcement layer (golden thread border). Completing fortify calls `AchievementService.addAchievement()` with a `garmentFortified` subtype. Requires a `GarmentPhase` field on `GarmentProfile`.
+**Fortify phase.** After a garment completes, it enters a fortify phase — the user keeps building and the garment gains a visual reinforcement layer (golden thread border). When the fortify phase completes, `_detectAchievements` detects the transition and calls `_addAchievement()` with a `garmentFortified` subtype. Requires a `GarmentPhase` enum field on `GarmentProfile` and a new `AchievementSubtype` enum value.
 
-**Gold phase.** After fortify, a gold phase begins — full gold visual treatment representing mastery. Completing it records `garmentGolded`. Each phase produces its own achievement and point value, making long-running commitments feel progressively rewarding rather than plateauing at completion.
+**Gold phase.** After fortify, a gold phase begins — full gold visual treatment representing mastery. Completing it calls `_addAchievement()` with `garmentGolded`. Each phase is a new milestone in the commitment's lifetime and earns its own point value. The `_detectAchievements` function handles all phase transitions in one place — adding a new phase means one new condition check.
+
+These phases make long-running commitments feel progressively rewarding rather than plateauing at completion.

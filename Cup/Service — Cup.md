@@ -2,7 +2,7 @@
 
 ---
 
-**Purpose:** evaluates weekly performance and awards cups. An independent feature. When a cup is earned, constructs an `AchievementRecord` and calls `AchievementService.addAchievement()` directly — no event publishing needed for the achievement handoff.
+**Purpose:** evaluates weekly performance and awards cups. When a cup is earned, records the achievement directly via `AchievementService.addAchievement()`. An independent feature — sits above Achievements in the chain.
 
 ---
 
@@ -19,24 +19,16 @@ if CupRepository.cupExistsForWeek(event.weekStart): return   // idempotent
 
 cup = WeeklyCup(weekStart: event.weekStart, cupLevel: level, weeklyScore: score)
 CupRepository.saveCup(cup)
-
-AchievementService.addAchievement(AchievementRecord(
-  type: AchievementType.cup,
-  subtype: _cupSubtype(level),   // bronzeCup | silverCup | goldCup | diamondCup
-  sourceId: cup.id,
-  definitionId: null,
-  createdAt: now,
-  updatedAt: now,
-))
+_addAchievement(cup)
 ```
 
 ### `backfillMissingCups()` — on app startup
 
-Looks back `AppConfig.cupBackfillWeeks` (default: 8) weeks. For each past week with no cup record, fetches score and runs the same logic silently. No achievement recorded for backfilled cups — they are historical records only. Backfill is bounded to prevent unbounded reads.
+Looks back `AppConfig.cupBackfillWeeks` (default: 8) weeks. For each past week with no cup record, fetches score and awards a cup silently. No achievement recorded for backfilled cups — they are historical records only. Backfill is bounded to satisfy the windowed fetch rule.
 
 ---
 
-## Pure Functions
+## Internal Functions
 
 ### `_determineCupLevel(score)` → CupLevel?
 
@@ -48,6 +40,21 @@ if score >= AppConfig.cupThresholdGold:    return gold      // default: 85
 if score >= AppConfig.cupThresholdSilver:  return silver    // default: 75
 if score >= AppConfig.cupThresholdBronze:  return bronze    // default: 60
 return null
+```
+
+### `_addAchievement(cup)`
+
+Private. Constructs and submits an `AchievementRecord`.
+
+```
+AchievementService.addAchievement(AchievementRecord(
+  type: AchievementType.cup,
+  subtype: _cupSubtype(cup.cupLevel),
+  sourceId: cup.id,
+  definitionId: null,   // cups are cross-commitment
+  createdAt: now,
+  updatedAt: now,
+))
 ```
 
 ### `_cupSubtype(level)` → AchievementSubtype
@@ -65,22 +72,18 @@ diamond → AchievementSubtype.diamondCup
 
 ### `getAllCups(from, to)` → List<WeeklyCup>
 
-Ordered by weekStart descending. Used when cup detail is needed beyond what `AchievementService` provides.
+Ordered by weekStart descending.
 
 ### `getCupsSince(from)` → List<WeeklyCup>
 
-Returns cups earned since `from`.
-
-### `cupExistsForWeek(weekStart)` → bool
-
-Internal idempotency check.
+Used internally and by `AchievementService` for reads beyond what `AchievementRecord` carries.
 
 ---
 
 ## Rules
 
 - Cups based on raw `getOverallWeekScore()` — never accelerator-modified
-- Idempotent — one cup per week maximum
+- Idempotent — one cup per week maximum, checked before write
 - No achievement recorded for backfilled cups
 - Thresholds are percentage values in `AppConfig`
 

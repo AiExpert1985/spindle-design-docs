@@ -128,18 +128,17 @@ Published after every `livePerformance` change. Features that need to react to a
 
 ---
 
-## Reward Events
+## Achievement-Adjacent Events
 
-Published by: StreakService
+The following events were removed as part of the achievement system redesign:
 
-```
-StreakChangedEvent
-  definitionId: String
-  currentStreak: int
-  bestStreak: int
-```
+- `CupEarnedEvent` — replaced by `CupService._addAchievement()` direct call
+- `RewardEarnedEvent` — Rewards feature deferred to Later Improvements
+- `MilestoneEarnedEvent` — Milestones feature removed; milestone detection is internal to `StreakService`
+- `GlobalBestStreakEvent` — replaced by `StreakService._addAchievement()` direct call
+- `StreakChangedEvent` — existed only for `MilestoneService` to subscribe. With Milestones gone, no external feature needs to subscribe to streak changes. Removed entirely.
 
-`StreakChangedEvent` published only when `abs(currentStreak) >= AppConfig.minStreakDays`. Consumed by `MilestoneService`. All other achievement moments (cups, rewards, milestones, garment completions, global best streaks) are recorded via direct `AchievementService.addAchievement()` calls from producing services — no events needed for those handoffs.
+All achievement moments are now recorded via direct `AchievementService.addAchievement()` calls from producing services. The `AchievementEarnedEvent` (published by `AchievementService`) is the only achievement-related event in the system.
 
 ---
 

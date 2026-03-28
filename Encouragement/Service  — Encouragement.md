@@ -19,7 +19,7 @@ Encouragement is a read-only reactor. It subscribes to events from below, reads 
 Day celebration Path B — notification at configured time.
 
 ```
-if not _temporal.isNearTime(tick.timestamp, userPrefs.celebrationTime): return
+if not isNearTime(tick.timestamp, userPrefs.celebrationTime): return
 if not TickGuard.shouldRun('celebration', today): return
 if not userPrefs.celebrationEnabled: return
 
@@ -29,75 +29,150 @@ _evaluateDayCelebration(today)
 
 Fires at most once per day via `TickGuard`.
 
-### `ActivityEvent` where `type: created` → `_onActivityRecorded(event)`
+### `ActivityService.onActivityCreated` → `_onActivityRecorded(event)`
 
 Immediate feedback after a positive log. Used by the Dashboard card — deferred to Phase 2 when the Dashboard interaction is designed.
 
 ```
 if livePerformance did not increase: return   // no feedback on miss
 
-emit LogFeedbackSignal(livePerformance)
+emit LogFeedbackSignal(livePerformance, event.definitionId)
 
-// threshold crossings — checked in memory, fire once per session per threshold
+// threshold crossings — tracked in memory, fire once per session per threshold
 if crossed 50%:  emit ThresholdMessageSignal("Halfway there.")
 if crossed 100%: emit ThresholdMessageSignal("Commitment kept.")
 ```
 
-### `InstanceUpdatedEvent` where `snapshot.status == closed` → `_onWindowClosed(event)`
+### `CommitmentService.onInstanceUpdated` where `snapshot.status == closed` → `_onWindowClosed(event)`
 
 Path A — in-app day celebration. Checks if all commitment windows for today are now closed.
 
 ```
-allClosed = CommitmentIdentityService.getInstancesForDay(today)
-              .all(instance => instance.status == closed)
+instances = CommitmentIdentityService.getInstancesForDay(today)
+allClosed = instances.all(i => i.status == closed)
 
 if not allClosed: return
 
 dayScore = PerformanceService.getDayScore(today)
 if dayScore < userPrefs.celebrationThreshold: return
-if TickGuard.hasRun('celebration', today): return   // already celebrated today
+if TickGuard.hasRun('celebration', today): return
 
 TickGuard.markRan('celebration', today)
 _evaluateDayCelebration(today)
 ```
 
-### `AchievementEarnedEvent` where `record.type == streakMilestone` → `_onMilestone(event)`
+**Why `InstanceUpdatedEvent where status: closed` instead of `PerformanceUpdatedEvent`:** `PerformanceUpdatedEvent` previously carried an `isClosed` field that no longer exists. Window close is a structural lifecycle event on the instance — `InstanceUpdatedEvent where status: closed` is the correct signal. Performance is then read via `PerformanceService.getDayScore()`.
+
+### `AchievementService.onAchievementEarned` where `type: streak AND _isMilestoneSubtype(subtype)` → `_onMilestoneEarned(event)`
 
 ```
+streakCount = _milestoneStreakCount(event.record.subtype)
 emit MilestoneOverlaySignal(
-  streakCount: int.parse(event.record.subtype.split('_')[0]),
-  definitionId: event.record.definitionId
+  streakCount: streakCount,
+  definitionId: event.record.definitionId,
 )
 ```
 
-### `AchievementEarnedEvent` where `record.type == cup` → `_onCupEarned(event)`
+Filters to `AchievementType.streak` with a milestone subtype. Uses a static map to convert `AchievementSubtype` enum to the streak count integer — no string parsing.
+
+**Why no string parsing:** `AchievementSubtype` is a compile-time enum. The previous `'7_day'.split('_')[0]` approach was fragile string manipulation that breaks silently on rename. A static map is safe and explicit.
+
+### `AchievementService.onAchievementEarned` where `type: cup` → `_onCupEarned(event)`
 
 ```
 emit CupCelebrationSignal(
   cupLevel: event.record.subtype,
-  earnedAt: event.record.earnedAt
+  earnedAt: event.record.createdAt,
 )
 ```
 
-Shown when user opens app after Sunday calculation.
+Shown when the user opens the app after the Sunday calculation.
 
-### `LevelReachedEvent` → `_onLevelReached(event)`
+### `ProgressionService.onLevelReached` → `_onLevelReached(event)`
 
 ```
+oneLiner = _levelOneLiner(event.newLevel)
 emit LevelUpOverlaySignal(
   newLevel: event.newLevel,
   levelName: event.levelName,
-  oneLiner: event.levelUpMessage
+  oneLiner: oneLiner,
 )
 ```
 
-Message copy comes from the event — `ProgressionService` puts it there so Encouragement never calls back.
+**Why the one-liner lives here, not in the event:** `LevelReachedEvent` carries structural data — level number, name, previous level. Display copy (flavor text) is a presentation concern. `ProgressionService` should not know about copy. The static map lives in `EncouragementService` — the feature responsible for what the user sees and feels.
+
+---
+
+## Internal Functions
+
+### `_milestoneStreakCount(subtype)` → int
+
+Static map from `AchievementSubtype` enum to streak count.
+
+```
+threeDay    → 3
+fiveDay     → 5
+sevenDay    → 7
+tenDay      → 10
+fourteenDay → 14
+```
+
+### `_isMilestoneSubtype(subtype)` → bool
+
+```
+return subtype in {threeDay, fiveDay, sevenDay, tenDay, fourteenDay}
+```
+
+### `_levelOneLiner(level)` → String
+
+Static map from level index to flavor text. Display copy owned by Encouragement.
+
+```
+0 → "Your journey begins."
+1 → "The loom is warming up."
+2 → "Pattern forming."
+3 → "Consistent craft, recognizable work."
+4 → "The craft shows in everything you do."
+5 → "This is what mastery looks like."
+6 → "You keep the loom running."
+7 → "The final thread, perfectly placed."
+```
+
+---
+
+## Day Celebration Story Selection
+
+### `_evaluateDayCelebration(date)`
+
+```
+dayScore = PerformanceService.getDayScore(date)
+facts = AnalyticsService.computeDayFacts(date)
+lastType = UserSettingsService.getLastEncouragementType()
+
+storyType = _selectStory(facts, lastType)
+storyText = _buildStoryText(storyType, facts, dayScore)
+
+UserSettingsService.recordEncouragementSent(storyType)
+emit DayCelebrationSignal(dayScore, storyType, storyText)
+```
+
+Seven story types selected by priority. Type 6 always applies as fallback. Never repeats the same type two consecutive days.
+
+|Priority|Type|Example|
+|---|---|---|
+|1|Comeback|"After a tough few days, you're back at 71%."|
+|2|Improvement over yesterday|"Up from 61% to 74%. Moving forward."|
+|3|Commitment spotlight|"You walked every day this week."|
+|4|Consistency (3+ weeks)|"Three weeks of quiet discipline."|
+|5|Partial progress|"3km of your 5km walk. Partial progress moves you forward."|
+|6|Overall score (fallback)|"83% today. Your garment grew stronger."|
+|7|Slight setback (still ≥ threshold)|"Slightly below yesterday, but 65% still counts."|
 
 ---
 
 ## Emitted Signals (Riverpod providers)
 
-All signals are ephemeral — consumed once by the presentation layer and cleared.
+All ephemeral — consumed once and cleared. Presentation components observe these providers — never subscribe to events directly.
 
 ```
 LogFeedbackSignal
@@ -112,7 +187,7 @@ MilestoneOverlaySignal
   definitionId: String
 
 CupCelebrationSignal
-  cupLevel: String
+  cupLevel: AchievementSubtype
   earnedAt: DateTime
 
 LevelUpOverlaySignal
@@ -128,58 +203,29 @@ DayCelebrationSignal
 
 ---
 
-## Day Celebration Story Selection
-
-### `_evaluateDayCelebration(date)`
-
-```
-dayScore = PerformanceService.getDayScore(date)
-facts = AnalyticsService.computeDayFacts(date)
-prefs = UserCoreService.getProfile()
-lastType = UserSettingsService.getLastEncouragementType()
-
-storyType = _selectStory(facts, lastType)
-storyText = _buildStoryText(storyType, facts, dayScore)
-
-UserSettingsService.recordEncouragementSent(storyType)
-emit DayCelebrationSignal(dayScore, storyType, storyText)
-```
-
-Seven story types selected by priority. Type 6 always applies as fallback. Never repeats the same type two consecutive days — deduplication via `lastEncouragementType` on `UserSettingsProfile`.
-
-|Priority|Type|Example|
-|---|---|---|
-|1|Comeback|"After a tough few days, you're back at 71%."|
-|2|Improvement over yesterday|"Up from 61% to 74%. Moving forward."|
-|3|Commitment spotlight|"You walked every day this week."|
-|4|Consistency (3+ weeks)|"Three weeks of quiet discipline."|
-|5|Partial progress|"3km of your 5km walk. Partial progress moves you forward."|
-|6|Overall score (fallback)|"83% today. Your garment grew stronger."|
-|7|Slight setback (still ≥ threshold)|"Slightly below yesterday, but 65% still counts."|
-
----
-
 ## Rules
 
-- No persistent storage — `lastEncouragementType` on `UserSettingsProfile` is the only exception, written through `UserSettingsService`
+- No persistent storage — `lastEncouragementType` on `UserSettingsProfile` is the only exception
 - Tick subscription uses `TickGuard` — celebration fires at most once per day
-- `LogFeedbackSignal` and `ThresholdMessageSignal` deferred to Phase 2 (Dashboard card interaction not yet designed)
+- `LogFeedbackSignal` and `ThresholdMessageSignal` deferred to Phase 2
 - Threshold crossings tracked in memory — fire once per crossing per session, never stored
 - Signals are ephemeral — never replayed
+- Presentation components observe Riverpod providers — never subscribe to events directly
+- Display copy (level one-liners) lives here — not in events or Progression
 
 ---
 
 ## Dependencies
 
 - `Heartbeat` — subscribes to `longIntervalTick`
-- `CommitmentService` — subscribes to `InstanceUpdatedEvent`
-- `ActivityService` — subscribes to `ActivityEvent`
-- `AchievementsService` — subscribes to `AchievementEarnedEvent`
-- `ProgressionService` — subscribes to `LevelReachedEvent`
+- `ActivityService` — subscribes to `onActivityCreated`
+- `CommitmentService` — subscribes to `onInstanceUpdated` where `status: closed`
+- `AchievementService` — subscribes to `onAchievementEarned`
+- `ProgressionService` — subscribes to `onLevelReached`
 - `TickGuard` — day celebration idempotency
-- `TemporalHelperService` — near-time check for celebration time
-- `PerformanceService.getDayScore()` — day score for celebration threshold check
-- `CommitmentIdentityService.getInstancesForDay()` — checks all windows are closed (Path A)
+- `PerformanceService.getDayScore()` — day score for celebration and threshold checks
+- `CommitmentIdentityService.getInstancesForDay()` — all-windows-closed check (Path A)
 - `AnalyticsService.computeDayFacts()` — story selection
 - `UserCoreService.getProfile()` — celebration preferences
-- `UserSettingsService.recordEncouragementSent()` — story deduplication
+- `UserSettingsService.recordEncouragementSent()` — story deduplication write
+- `UserSettingsService.getLastEncouragementType()` — story deduplication read

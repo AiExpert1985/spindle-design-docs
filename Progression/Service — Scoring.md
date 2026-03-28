@@ -8,11 +8,11 @@
 
 ## Design Decisions
 
-**Why ScoringService is separate from ProgressionService.** `ProgressionService` only knows about points and levels. `ScoringService` owns the knowledge of what each achievement is worth. Changing point values only touches `AppConfig`. Adding a new achievement type only touches the lookup table here and one `AppConfig` entry. `ProgressionService` is untouched in both cases.
+**Why ScoringService is separate from ProgressionService.** `ProgressionService` only knows about points and levels. `ScoringService` owns the knowledge of what each achievement is worth. Changing point values only touches `AppConfig`. Adding a new achievement subtype only touches the lookup table here and one `AppConfig` entry. `ProgressionService` is untouched in both cases.
 
-**Why the lookup is `subtype → points`, not `type → points`.** Different achievements of the same type have different values — a diamond cup is worth more than a bronze cup. Subtype is the specific semantic label, so it is the right key for the point lookup. Type is for grouping and filtering, not scoring.
+**Why the lookup is `subtype → points`, not `type → points`.** Different achievements of the same type have different values — a diamond cup is worth more than a bronze cup. Subtype is the specific semantic label, making it the right key for point lookup.
 
-**Why the bonus system was removed.** The original design had a separate bonus trigger system with `ScoringState` tracking last bonus month. This was complexity without clarity. Every achievement now has one fixed point value in `AppConfig`. If certain achievements should be worth more (e.g. diamond cup after a streak of bad weeks), that is expressed by designing the right point values — not by a separate bonus detection layer. The scoring system is one clean table.
+**Why the bonus system was removed.** The original design had a separate bonus trigger system tracking last bonus month. Every achievement now has one fixed point value in `AppConfig`. The scoring system is one clean table.
 
 ---
 
@@ -22,7 +22,7 @@
 
 ```
 points = _lookupPoints(event.record.subtype)
-if points == 0: return   // unrecognised subtype — no points awarded, logged as warning
+if points == 0: return   // unrecognised subtype — logged as warning
 
 publish PointsAwardedEvent(
   points: points,
@@ -50,20 +50,25 @@ Consumed only by `ProgressionService`. Never published externally.
 
 ### `_lookupPoints(subtype)` → double
 
-Maps each `AchievementSubtype` to a point value from `AppConfig`.
-
 ```
+// cup achievements
 bronzeCup        → AppConfig.pointsBronzeCup
 silverCup        → AppConfig.pointsSilverCup
 goldCup          → AppConfig.pointsGoldCup
 diamondCup       → AppConfig.pointsDiamondCup
+
+// streak achievements
 globalBestStreak → AppConfig.pointsGlobalBestStreak
 threeDay         → AppConfig.pointsThreeDay
 fiveDay          → AppConfig.pointsFiveDay
 sevenDay         → AppConfig.pointsSevenDay
 tenDay           → AppConfig.pointsTenDay
 fourteenDay      → AppConfig.pointsFourteenDay
+
+// garment achievements
 garmentCompleted → AppConfig.pointsGarmentCompleted
+
+// reward achievements — placeholder for future Rewards feature
 periodicReward   → AppConfig.pointsPeriodicReward
 ```
 
@@ -78,7 +83,7 @@ Returns 0.0 for unrecognised subtypes — never throws. Logs a warning when 0 is
 - Internal to Progression — never called by features outside
 - All point values from `AppConfig` — never hardcoded
 - Unrecognised subtypes return 0 points and log a warning — never throw
-- No `ScoringState`, no bonus system — one clean subtype-to-points table
+- No bonus system, no separate state — one clean subtype-to-points table
 - No dependency on `ProgressionService` — internal event is sufficient
 
 ---

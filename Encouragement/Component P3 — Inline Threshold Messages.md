@@ -1,4 +1,4 @@
-**File Name**: component_inline_threshold_messages **Feature**: Encouragement **Phase**: 3 **Created**: 15-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: component_inline_threshold_messages **Feature**: Encouragement **Phase**: 3 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -23,10 +23,13 @@ Shown inline after a log, at meaningful score crossings only — never on every 
 
 ## Rules
 
+- Purely presentational — no service calls, no event subscriptions, no storage
+- Observes `ThresholdMessageSignal` from `EncouragementService` via Riverpod provider
+- Detection logic lives in `EncouragementService` — this component only renders what it receives
 - Fades after 2 seconds — never blocks interaction
 - Never shown on misses, breaches, or slips — positive moments only
-- One message per crossing per session — never repeats for the same threshold in the same day
-- Silent if the animation system is under load — drop rather than delay. See `ux_principles` rule 5.
+- One message per crossing per session — deduplication owned by `EncouragementService`
+- Silent if animation system is under load — drop rather than delay. See `ux_principles` rule 5
 
 ---
 
@@ -34,13 +37,10 @@ Shown inline after a log, at meaningful score crossings only — never on every 
 
 |Data|Source|
 |---|---|
-|Commitment milestone crossings|`PerformanceUpdatedEvent` — `livePerformance` field|
-|Overall day score crossing|`PerformanceService.getDayScore(today)`|
+|Threshold message text|`ThresholdMessageSignal` via Riverpod provider (from `EncouragementService`)|
 
 ---
 
 ## Dependencies
 
-- EventBus — subscribes to `ActivityEvent` to detect first log of the day
-- EventBus — subscribes to `PerformanceUpdatedEvent` to detect milestone crossings
-- `PerformanceService.getDayScore()` — overall day score check
+- Riverpod provider — observes `ThresholdMessageSignal` from `EncouragementService`
