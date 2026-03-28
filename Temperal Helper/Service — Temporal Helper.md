@@ -116,7 +116,5 @@ Preferences are cached on first call and refreshed when `UserCoreService.watchPr
 
 ## Rules
 
-- Every service that needs time-based condition checks calls `TemporalHelperService` — never raw timestamp arithmetic
-- Every feature that needs to react to day or week boundaries subscribes to `TemporalHelperService` events — never detects boundaries independently
 - No domain knowledge — never imports any feature model or event above it in the stack
 - Preferences are cached — never read from `UserCoreService` on every function call
