@@ -29,7 +29,7 @@ abstract class ActivityRepository {
 
 `getEntry` — returns one entry by ID, or null if not found. Used by `ActivityService` before edit or delete to confirm the entry exists and check its `loggedAt`.
 
-`getEntriesForDay` — all entries for a commitment on a specific date, ordered by `loggedAt` ascending.
+`getEntriesForDay` — all entries for a commitment on a specific date, ordered by `loggedAt` descending.
 
 `getEntriesForWeek` — all entries for a commitment in the Mon–Sun week containing `weekStart`, ordered by `loggedAt` ascending.
 

@@ -110,9 +110,9 @@ ActivityEvent
   value: double?            // null on deleted
 ```
 
-One event covers all three write operations. `PerformanceService` recalculates identically regardless of type. `Encouragement` subscribes to `created` only. `value` is null on deleted.
+One event covers all three write operations. `value` is null on deleted.
 
-No `instanceId` — `PerformanceService` identifies the instance from `definitionId` + `loggedAt` date.
+No `instanceId` — the correct instance is identified at read time from `definitionId` + `loggedAt` date.
 
 All other downstream reactions (Rewards, Garment) watch `PerformanceUpdatedEvent` — not `ActivityEvent` directly.
 

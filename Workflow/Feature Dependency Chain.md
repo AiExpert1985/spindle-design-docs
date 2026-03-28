@@ -178,7 +178,7 @@ No events published. No events subscribed. Pure read-only interface. See `servic
 
 **Public functions:** `recordEntry()`, `editEntry()`, `deleteEntry()`, `getTotalLoggedForCommitmentOnDate()`, `getEntriesForDay()`, `getEntriesForWeek()`, `getEntriesForPeriod()`
 
-**Subscribes to:** `InstancePermanentlyDeletedEvent` (Commitment)
+**Subscribes to:** `InstancePermanentlyDeletedEvent` (CommitmentIdentityService)
 
 ---
 

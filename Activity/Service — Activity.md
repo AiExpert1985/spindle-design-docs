@@ -61,19 +61,19 @@ On success:
 
 ### `getTotalLoggedForCommitmentOnDate(definitionId, date) → double`
 
-Fetches all entries for `definitionId` on `date` via `ActivityRepository.getEntriesForDay()`, then sums their `value` fields in Dart. Returns 0.0 if no entries exist. Called by `PerformanceService` after each recalculation.
+Fetches all entries for `definitionId` on `date` via `ActivityRepository.getEntriesForDay()`, then sums their `value` fields in Dart. Returns 0.0 if no entries exist.
 
 ### `getEntriesForDay(definitionId, date) → List<LogEntry>`
 
-All log entries for a specific day ordered by `loggedAt` descending. Used by `LogHistorySheet`.
+All log entries for a specific day ordered by `loggedAt` descending.
 
 ### `getEntriesForWeek(definitionId, weekStart) → List<LogEntry>`
 
-All log entries for the Mon–Sun week containing `weekStart`. Used by `LogHistorySheet` week view.
+All log entries for the Mon–Sun week containing `weekStart`.
 
 ### `getEntriesForPeriod(definitionId, from, to) → List<LogEntry>`
 
-All log entries in an arbitrary date range. Used by Analytics.
+All log entries in an arbitrary date range.
 
 ---
 
