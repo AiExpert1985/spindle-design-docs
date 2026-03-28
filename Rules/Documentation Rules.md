@@ -1,4 +1,4 @@
-**File Name**: documentation_rules **Phase**: All phases **Created**: 21-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: documentation_rules **Phase**: All phases **Created**: 21-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
@@ -145,3 +145,24 @@ Good: "Commitment facts rendered by `component_commitment_info` — see that doc
 Anything not in scope for the current phase goes in a dedicated "Later Improvements" section at the bottom of the doc. Each entry names what it adds and what it requires — feature dependency, phase — in one or two sentences. Never mix future plans into the current phase description.
 
 Good: "**Streak display.** Current streak and personal best. Requires the Rewards feature (Phase 2)." Bad: describing a Phase 2 feature inline as if it is part of the current design.
+
+---
+
+## 16. Feature Cover Docs
+
+Every feature has one cover doc named `feature_[name].md`. It is the entry point for understanding the feature before reading any detail doc. It is written in prose with clear section headers — no code blocks.
+
+**What it contains, in order:**
+
+- **Opening line** — one sentence: what this feature is.
+- **Why It Exists** — the problem it solves and why it sits where it does in the stack.
+- **Position in the System** — where it sits in the dependency chain, what it depends on, whether it produces events, consumes events, or both.
+- **What It Owns** — its models, services, and repositories by name only. What data it is the single source of truth for.
+- **How It Works** — the core flow in plain language. Key design decisions with one-line reasoning. What it does NOT do.
+- **Who Uses It** — which kinds of features use it and for what purpose. Describe consumers by what they do, not by name — upper features are context, not contracts.
+- **Rules** — constraints specific to this feature that are not already in `architecture_rules`.
+- **Later Improvements** — deferred extensions only. Never add items not already planned.
+
+**Naming:** `feature_[name].md` — e.g. `feature_infrastructure.md`, `feature_commitment.md`.
+
+**Deduplication rule:** once something is stated in the cover, it must not be repeated in the feature's detail docs. Detail docs keep their own focused purpose statement but drop cross-cutting context — dependency position, why the feature exists, who uses it. If a detail doc rule is already in the cover, remove it from the detail doc and keep it only in the cover.
