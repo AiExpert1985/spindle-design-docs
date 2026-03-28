@@ -1,4 +1,4 @@
-**File Name**: model_user_core_profile **Feature**: UserCore **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: model_user_core_profile **Feature**: UserCore **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
@@ -91,7 +91,6 @@ Applied when a new commitment is created. User can override per commitment.
 
 ## Rules
 
-- One record per user — created once on first launch, never recreated
 - `storageBackend` changed only by `MigrationService` — no other service writes this field
 - Written only by `UserSettingsService` — `UserCoreService` is read-only
 - System constants that are not user-configurable live in `app_configuration`

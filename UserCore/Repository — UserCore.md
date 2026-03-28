@@ -1,4 +1,4 @@
-**File Name**: repository_user_core **Feature**: UserCore **Phase**: 1 (Drift) · Phase 3 (Firestore) **Created**: 26-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: repository_user_core **Feature**: UserCore **Phase**: 1 (Drift) · Phase 3 (Firestore) **Created**: 26-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
@@ -38,5 +38,4 @@ Covered by the standard security rule.
 
 - `getProfile()` and `watchProfile()` called only by `UserCoreService`
 - `saveProfile()` called only by `UserSettingsService`
-- One record per user — never create a second profile
 - Full replace on every write — no partial field updates

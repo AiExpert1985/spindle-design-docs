@@ -118,8 +118,6 @@ UserSettings          (writes UserCoreProfile, capability checks,
 
 **Publishes:** `LongIntervalTick(timestamp)`, `ShortIntervalTick(timestamp)`
 
-**Public functions (TickService):** `getLastTickTimestamp()`
-
 No domain knowledge. No subscriptions. See `heartbeat`.
 
 ---
@@ -325,7 +323,7 @@ Top-of-chain feature. Depends on Commitment and Performance via `UserCapabilityS
 |`ProgressionService` reads `AchievementService` directly|ProgressionService only knows points — ScoringService handles the translation|
 |Any feature reads temporal preferences from `UserSettingsService`|Read from `UserCoreService` only|
 |Any feature calls `UserCoreService.getTemporalPreferences()` directly|Call `TemporalHelperService` — it owns that dependency|
-|Any feature subscribes to `Heartbeat` for boundary detection|Subscribe to `TemporalHelperService` events instead|
+|Any feature detects day or week boundaries independently from a tick timestamp|Boundary detection is centralized in `TemporalHelperService` — subscribe to its events instead|
 |Any feature publishes `WeekEndedEvent` or `DayEndedEvent`|Published only by `TemporalHelperService`|
 |`TemporalHelperService` imports any feature above it in the stack|Only calls `UserCoreService` and subscribes to `Heartbeat`|
 

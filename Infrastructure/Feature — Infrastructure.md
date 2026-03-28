@@ -2,8 +2,6 @@
 
 ---
 
-# Feature — Infrastructure
-
 Infrastructure provides three raw, domain-free capabilities — time signals, diagnostic output, and OS notification delivery — that any feature in the stack can use without knowing anything about the platform underneath.
 
 ---

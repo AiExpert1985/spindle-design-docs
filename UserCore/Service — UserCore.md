@@ -1,18 +1,8 @@
-**File Name**: service_user_core **Feature**: UserCore **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: service_user_core **Feature**: UserCore **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
 **Purpose:** read-only access to `UserCoreProfile` for any feature that needs it. Owns profile creation on first launch. Exposes no write functions — `UserSettingsService` is the only writer.
-
----
-
-## Why UserCore Is a Separate Feature
-
-Every feature in the app needs something from the user's profile — tier, temporal preferences, notification toggles, activity window defaults. If this data lived inside a higher-level feature, every feature that reads it would depend on that higher-level feature, creating an impossible chain or forcing cycles.
-
-UserCore solves this by being the lowest domain feature: it depends on nothing above the base features, and everything above it can read from it freely. Writes flow from the top — `UserSettingsService` owns all preference updates and writes through `UserCoreRepository` directly. Reads flow from the bottom — any feature calls `UserCoreService` downward.
-
-This split also enforces a clean rule: reading preferences never requires knowing anything about commitments, performance, or user behavior. That knowledge lives higher in the chain where it belongs.
 
 ---
 
@@ -28,7 +18,7 @@ Returns the current subscription tier. Called by any feature that gates behavior
 
 ### `getTemporalPreferences() → UserTemporalPrefs`
 
-Returns `weekStartDay`, `restDays`, `dayBoundaryHour`, `wakingHoursStart`, `wakingHoursEnd` as a `UserTemporalPrefs` value object. Passed directly into `TemporalHelper` static functions by callers — `TemporalHelper` never calls this itself.
+Returns `weekStartDay`, `restDays`, `dayBoundaryHour`, `wakingHoursStart`, `wakingHoursEnd` as a `UserTemporalPrefs` value object. Called only by `TemporalHelperService` internally — no other feature calls this directly.
 
 ### `getActivityWindowDefaults(recurrence) → ActivityWindowDefaults`
 

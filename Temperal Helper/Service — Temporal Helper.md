@@ -1,38 +1,8 @@
-**File Name**: service_temporal_helper **Feature**: TemporalHelper **Phase**: 1 **Created**: 18-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: service_temporal_helper **Feature**: TemporalHelper **Phase**: 1 **Created**: 18-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** answers semantic questions about time using the current user's preferences, and publishes domain-level time boundary events that any feature can subscribe to. Owns all time boundary detection in the app — no other feature detects day or week boundaries independently.
-
----
-
-## Why TemporalHelper Is a Service, Not a Utility
-
-If TemporalHelper were a static utility, every feature that needs time boundary detection would have to call `UserCoreService.getTemporalPreferences()` itself before calling it. That scatters a common dependency across every time-sensitive feature, and means any change to the preferences structure touches every caller.
-
-As a service, TemporalHelper owns the UserCore dependency in one place. Callers pass a timestamp and get an answer — no preferences handling, no UserCore calls in their code. The service caches preferences internally and refreshes via `UserCoreService.watchProfile()` when preferences change.
-
----
-
-## Why TemporalHelper Publishes Boundary Events
-
-Multiple features need to react when a day or week ends — Cups, Rewards, Garment, AI Insights, and others. The naive approach is for each feature to subscribe to Heartbeat and call `isWeekBoundary()` independently. This scatters boundary detection across the system, duplicates TickGuard logic, and forces every time-sensitive feature to depend on Heartbeat directly.
-
-TemporalHelper already owns boundary detection. Publishing the events here means one detection, one TickGuard check, and clean decoupling — features subscribe to a semantic signal (`WeekEndedEvent`) rather than a raw mechanism (Heartbeat tick). This also removes the coupling that previously forced CommitmentIdentityService to publish week events despite them being a time concern, not a commitment concern.
-
----
-
-## Why TemporalHelper Is Separate From Heartbeat
-
-Heartbeat's only job is to fire at intervals and emit a raw timestamp. It has no knowledge of what that timestamp means for any particular user.
-
-TemporalHelper is where that meaning lives — and that meaning is user-specific. Week start, rest days, and day boundaries vary by region and preference. A user in Iraq has a Friday–Saturday weekend. A user in Europe has a Saturday–Sunday weekend. Heartbeat cannot know these things without depending on user preferences, which would give it domain knowledge it must not have.
-
----
-
-## Position in the Stack
-
-TemporalHelper sits above UserCore and below all domain features. It depends on `UserCoreService` and `Heartbeat`. Features above it subscribe to its boundary events or call its query functions downward.
+**Purpose:** answers semantic questions about time using the current user's preferences, and publishes boundary events when a day or week ends or begins. Preferences are owned by `UserCoreService` and cached internally — callers pass a timestamp and get an answer, no preferences handling required.
 
 ---
 
@@ -52,7 +22,7 @@ WeekStartedEvent
   weekStart: DateTime     // start of the new week
 ```
 
-Published via TickGuard to prevent double-firing when multiple ticks arrive near a boundary.
+Published when a boundary is detected on a long-interval tick. Deduplication is handled internally — `_lastPublishedDayStart` and `_lastPublishedWeekStart` are stored in memory and compared on each tick to prevent double-firing within a session.
 
 ---
 
@@ -102,19 +72,19 @@ abstract class TemporalHelperService {
 ```dart
 _heartbeat.longIntervalTick.listen((tick) {
   final ts = tick.timestamp;
+  final dayStart = currentDayStart(ts);
+  final weekStart = currentWeekStart(ts);
 
-  if (isDayBoundary(ts) &&
-      _guard.shouldRun('day_boundary', currentDayStart(ts))) {
-    _guard.markRan('day_boundary', currentDayStart(ts));
+  if (isDayBoundary(ts) && dayStart != _lastPublishedDayStart) {
+    _lastPublishedDayStart = dayStart;
     _publish(DayEndedEvent(dayEnd: ts));
-    _publish(DayStartedEvent(dayStart: currentDayStart(ts)));
+    _publish(DayStartedEvent(dayStart: dayStart));
   }
 
-  if (isWeekBoundary(ts) &&
-      _guard.shouldRun('week_boundary', currentWeekStart(ts))) {
-    _guard.markRan('week_boundary', currentWeekStart(ts));
+  if (isWeekBoundary(ts) && weekStart != _lastPublishedWeekStart) {
+    _lastPublishedWeekStart = weekStart;
     _publish(WeekEndedEvent(weekStart: previousWeekStart(ts)));
-    _publish(WeekStartedEvent(weekStart: currentWeekStart(ts)));
+    _publish(WeekStartedEvent(weekStart: weekStart));
   }
 });
 ```
@@ -137,18 +107,10 @@ Preferences are cached on first call and refreshed when `UserCoreService.watchPr
 
 ---
 
-## What TemporalHelper Does Not Do
-
-- Does not know anything about commitments, instances, or any domain concept
-- Does not make decisions — only answers questions about time and fires boundary signals
-
----
-
 ## Dependencies
 
 - `Heartbeat` — subscribes to `longIntervalTick`
 - `UserCoreService` — reads and watches temporal preferences
-- `TickGuard` — prevents double-firing of boundary events
 
 ---
 
