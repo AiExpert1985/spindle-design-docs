@@ -1,47 +1,8 @@
-**File Name**: model_commitment_instance **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: model_commitment_instance **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** one occurrence of a commitment on a specific date. Tracks what was achieved during that window. Carries everything any feature needs to act on it — no feature outside Commitment reads the definition for operational decisions.
-
----
-
-## What an Instance Is
-
-A commitment definition says what the user wants to do and how often. An instance is one actual occurrence — "did the user do it on this specific day?"
-
-Instances are self-replicating. Each instance carries enough data to spawn its successor when it closes, without consulting the definition. This eliminates a central scheduler and makes the system resilient — a missed tick does not permanently break the chain.
-
-All instances are daily regardless of recurrence type:
-
-- **Daily** — one instance per calendar day, carrying the full daily target.
-- **Weekly** — one instance per day, each carrying 1/7 of the weekly target. A weekly goal of 200 pages produces a daily instance with target 28.6 pages. The user can act on any day — over-performance on one day compensates for under-performance on another.
-- **SpecificWeekDays** — one instance per commitment, generated only on the configured days. On non-configured days, no instance exists and no activity is expected. Each instance carries the full target per occurrence.
-
-This uniformity makes performance calculation simple — every instance is treated identically regardless of how the commitment was configured.
-
-There is always exactly one pending instance per commitment. When a pending instance closes, its successor is generated immediately in the same operation.
-
-`livePerformance` is the one field owned by an external feature (Performance). It changes independently of structural instance changes and does not trigger `InstanceUpdatedEvent` — it has its own signal (`PerformanceUpdatedEvent`).
-
----
-
-## UI vs Upper Features
-
-- **UI reads the definition** — to show the user what they configured: name, type, target, recurrence, window.
-- **Upper features work with instances** — Performance, Notifications, Streaks, Garment all react to what actually happened. They read instances, never the definition.
-
-The instance carries a snapshot of all operational fields from the definition at the time of creation, so upper features always have what they need without a definition lookup.
-
----
-
-## Two Windows
-
-An instance has two distinct windows serving different purposes.
-
-**RegenerationWindow** — the accountability period. Defines when this occurrence begins and ends. Used to calculate the next window start when the instance self-replicates. Immutable after creation.
-
-**ActivityWindow** — the user's preferred time-of-day slot. Used for notification timing: the warning fires at 3/4 of the duration (if enabled), the window-close notification fires at the end. No effect on scoring or the accountability period.
+**Purpose:** one occurrence of a commitment on a specific date. Carries a DNA snapshot of the definition fields at creation time — everything any feature needs to act on it without a definition lookup.
 
 ---
 
@@ -125,8 +86,6 @@ ActivityWindow
 - `PerformanceService` is the only service that writes `livePerformance`
 - `regenerationWindow`, `recurrence`, `commitmentType`, `createdAt` are immutable after creation
 - `livePerformance` changes do not trigger `InstanceUpdatedEvent` — signalled by `PerformanceUpdatedEvent`
-- Exactly one pending instance per commitment at all times
 - `livePerformance` is initialized to `0.0` on creation — valid ground state before any activity
 - Status change from pending to closed always triggers `InstanceUpdatedEvent`
 - On soft delete, the pending instance is cleared — closed instances are preserved
-- Upper features read instances — never the definition

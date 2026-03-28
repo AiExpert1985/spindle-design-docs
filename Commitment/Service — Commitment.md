@@ -1,16 +1,8 @@
-**File Name**: service_commitment **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: service_commitment **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** manages the lifecycle of commitment definitions. The single writer of `CommitmentDefinition`. Handles creation, editing, and all state transitions. Publishes events consumed only within the Commitment feature.
-
----
-
-## Public Interface of the Commitment Feature
-
-The public interface of Commitment is the instance events published by `CommitmentIdentityService` — not `CommitmentEvent`. No feature outside Commitment subscribes to `CommitmentEvent`. It is an internal coordination mechanism between `CommitmentService` and `CommitmentIdentityService` within the same feature.
-
-The rest of the application interacts with Commitment entirely through instances. Features read instances to get commitment name, state, target, and notification config — no definition lookup needed for operational decisions.
+**Purpose:** manages the lifecycle of commitment definitions. The single writer of `CommitmentDefinition`. Handles creation, editing, and all state transitions. Publishes `CommitmentEvent` consumed only by `CommitmentIdentityService` within the same feature.
 
 ---
 
@@ -137,10 +129,6 @@ Delete is available from any non-deleted state. Invalid transitions return a `Fa
 - `permanentDeleteCommitment` publishes `CommitmentEvent(type: deleted)` only — calls nothing else
 - `commitmentType` changes rejected on update — immutable after creation
 - All functions return `Result<T>` — no raw exceptions
-
-**Why CommitmentService never closes instances directly:**
-
-When a commitment is frozen, completed, or soft-deleted, the pending instance is not closed by `CommitmentService`. An instance's window is a fact about time — it closes when its `regenerationWindow.windowEnd` arrives, not when the commitment changes state. `CommitmentService` owns definitions. `CommitmentIdentityService` owns instances. The correct flow: `CommitmentService` publishes the state change event. `CommitmentIdentityService` subscribes, clears the pending instance so no successor will be generated, and lets the existing pending instance close naturally when its window ends.
 
 ---
 

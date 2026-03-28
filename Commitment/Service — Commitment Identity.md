@@ -1,16 +1,8 @@
-**File Name**: service_commitment_identity **Feature**: Commitment **Phase**: 1 **Created**: 20-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: service_commitment_identity **Feature**: Commitment **Phase**: 1 **Created**: 20-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** manages the lifecycle of commitment instances. The only service that creates or deletes instances. The sole subscriber to `CommitmentEvent` within the Commitment feature. Publishes the three instance events that form the public interface of the Commitment feature.
-
----
-
-## Why This Service Is the Bridge
-
-`CommitmentService` manages definitions and publishes internal events. `CommitmentIdentityService` translates those into instance operations and publishes instance events that the rest of the application subscribes to. No feature outside Commitment ever sees a `CommitmentEvent` — they only see instance events.
-
-`livePerformance` on each instance is calculated and written by `PerformanceService` via `updateLivePerformance()` — a valid downward call. This service stores the value, never calculates it.
+**Purpose:** manages the lifecycle of commitment instances. The only service that creates or deletes instances. Sole subscriber to `CommitmentEvent` within the Commitment feature. Publishes the three instance events that form the public interface of the Commitment feature.
 
 ---
 
@@ -72,7 +64,7 @@ Closing is unconditional — it happens regardless of `commitmentState`. What `c
 
 **Catch-up:** for each commitment with `commitmentState == active` and no pending instance (device was inactive at close time), replicates from the last closed instance. If no closed instance exists, reads definition once and generates from scratch.
 
-All tick operations use `TickGuard` to prevent double-processing.
+All tick operations process everything due at or before the tick timestamp — this is what makes catch-up on app open free.
 
 ---
 
@@ -174,7 +166,6 @@ All instances for a given week, optionally filtered by commitment.
 - `CommitmentInstanceRepository` — instance storage
 - `CommitmentService` — reads definition for catch-up generation when no prior instance exists
 - `TemporalHelperService` — day boundary detection for catch-up logic
-- `TickGuard` (Domain utility) — prevents double-processing on tick
 
 ---
 
@@ -185,8 +176,6 @@ All instances for a given week, optionally filtered by commitment.
 - `livePerformance` changes do not trigger `InstanceUpdatedEvent`
 - Close and replicate are sequential in the same tick handler — no self-subscription
 - Closed instances never deleted except on permanent commitment deletion
-- Exactly one pending instance per commitment at all times
 - Commitment state checked before replication — non-active commitments do not get a successor
 - Any `CommitmentEvent(type: updated)` clears and recreates the pending instance — no inspection of what changed
 - `CommitmentEvent` consumed only by this service — never forwarded outside Commitment
-- Week and day boundary events are published by `TemporalHelperService` — never by this service

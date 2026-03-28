@@ -1,19 +1,8 @@
-**File Name**: model_commitment_definition **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: model_commitment_definition **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
 **Purpose:** the template for a commitment. Defines what a commitment is, what the user wants to achieve, when it applies, and its current state. No activity or performance data lives here — those belong to other features.
-
----
-
-## Two Vocabularies, One Feature
-
-The definition is what the user configured — their commitment as they understand it. The instance is what actually happened on a given day. These serve different audiences:
-
-- **UI reads the definition** — to show the user what they committed to: name, type, target, recurrence, window. The user configured these, and the UI reflects that configuration.
-- **Upper features work with instances** — Performance, Notifications, Streaks, Garment all react to what happened, not what was configured. They read instances, never the definition.
-
-This separation means the definition never changes retroactively — past history is always measured against the target that was in effect at the time, which lives on the instance.
 
 ---
 
@@ -168,6 +157,3 @@ CommitmentDefinition
 - `commitmentType` is immutable after creation
 - Target and recurrence changes apply from today forward — past records never modified
 - State transitions only through `CommitmentService` — never by writing `commitmentState` directly
-- UI reads the definition to show the user what they configured
-- Upper features (Performance, Notifications, Streaks, Garment) work with instances — never the definition
-- No external feature writes to this model
