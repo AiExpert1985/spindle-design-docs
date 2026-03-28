@@ -2,51 +2,63 @@
 
 ---
 
-**Purpose:** stores the high-level user state that depends on app behavior — encouragement tracking, AI quota, onboarding state, and referral. One record per user. Low-level preferences (temporal settings, activity window defaults, tier, grace, notification toggles) live in `UserCoreProfile` — see `feature_usercore`.
+**Purpose:** stores the high-level user behavioral state — encouragement tracking, AI quota, onboarding state, and referral. One record per user. Low-level preferences (temporal settings, tier, notification toggles) live in `UserCoreProfile`.
 
 ---
 
 ## Fields
 
-```
-UserSettingsProfile
+```dart
+class UserSettingsProfile {
+  final String id;
+
   // Encouragement preferences
-  celebrationEnabled: bool               // default true
-  celebrationTime: int                   // minutes from midnight — default 1260 (21:00)
-  celebrationThreshold: int             // minimum day score % — default 60
-  lastEncouragementType: int?           // prevents same story type two consecutive days
-                                         // null means no story sent yet
+  final bool celebrationEnabled;       // default true
+  final int celebrationTime;           // minutes from midnight — default 1260 (21:00)
+  final int celebrationThreshold;      // minimum day score % — default 60
+  final int? lastEncouragementType;    // prevents same story type two consecutive days
+                                       // null means no story sent yet
 
   // Weekly report preferences (Pro/Premium only)
-  weeklyReportEnabled: bool              // default true
-  weeklyReportTime: int                  // minutes from midnight — default 1260 (21:00)
+  final bool weeklyReportEnabled;      // default true
+  final int weeklyReportTime;          // minutes from midnight — default 1260 (21:00)
 
   // AI quota (free tier only)
-  microInsightsUsedThisWeek: int         // default 0
-  insightsResetDate: DateTime?           // rolling 7-day window start — null on first launch
+  final int microInsightsUsedThisWeek; // default 0
+  final DateTime? insightsResetDate;   // rolling 7-day window start
+                                       // null on first launch — means no insights used yet
 
   // Onboarding (Phase 2)
-  hasCompletedOnboarding: bool?          // null in Phase 1 — never checked
+  final bool? hasCompletedOnboarding;  // null in Phase 1 — never checked
 
   // Referral (Phase 3 — Pro/Premium only)
-  referralCode: String?                  // generated once at Pro/Premium account creation
-  activatedReferralCount: int            // updated server-side via Firebase Cloud Function
+  final String? referralCode;          // generated once at Pro/Premium account creation
+  final int activatedReferralCount;    // updated server-side — never written by app directly
 
-  updatedAt: DateTime
+  final DateTime createdAt;
+  final DateTime updatedAt;
+}
 ```
 
 ---
 
-## Temporal Preference Defaults
+## Field Notes
 
-Temporal preferences (weekStartDay, restDays, dayBoundaryHour, wakingHoursStart, wakingHoursEnd) live in `UserCoreProfile`. Written once at profile creation from `UserDefaultPreferences` via `UserCoreService`.
+**`lastEncouragementType`** — null means no story has been sent yet. Cleared after 2 days by `UserSettingsService` to prevent stale deduplication.
+
+**`insightsResetDate`** — null on first launch means the rolling 7-day window has not started. `UserSettingsService.checkAndDecrementInsightQuota()` starts the window on the first insight request. When `now > insightsResetDate + 7 days`, the counter resets and a new window begins.
+
+**`hasCompletedOnboarding`** — null in Phase 1, never checked. Phase 2 adds the onboarding flow. Null and false both mean onboarding not completed — the onboarding bypass in `UserCapabilityService` treats both identically.
+
+**`activatedReferralCount`** — incremented server-side via Firebase Cloud Function when a referred user earns their first cup. The app reads this value but never writes it.
 
 ---
 
 ## Rules
 
 - One record per user — created on first launch, never deleted
-- `lastEncouragementType` cleared after 2 days — `UserSettingsService` handles this
-- `referralCode` generated once at Pro/Premium creation — null for free users
-- `activatedReferralCount` updated server-side — never written by the app directly
+- `lastEncouragementType` cleared after 2 days — handled by `UserSettingsService`
+- `referralCode` generated once at Pro/Premium account creation — null for free users
+- `activatedReferralCount` updated server-side only — never written by the app
 - Written only by `UserSettingsService`
+- `createdAt` immutable — set once at profile creation

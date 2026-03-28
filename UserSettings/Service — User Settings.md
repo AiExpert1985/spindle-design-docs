@@ -4,7 +4,7 @@
 
 **Purpose:** the only writer of both `UserCoreProfile` and `UserSettingsProfile`. Manages high-level user state — encouragement tracking, AI quota, onboarding, subscription, and referral. Also owns all preference write functions. Sits at the top of the feature chain because `UserCapabilityService` (internal to this feature) depends on `CommitmentService` and `PerformanceService`.
 
-Low-level preference reads are served by `UserCoreService` — see `feature_usercore`. Features that only need to read preferences call `UserCoreService` directly without depending on `UserSettingsService`.
+Low-level preference reads are served by `UserCoreService` — features that only need to read preferences call `UserCoreService` directly without depending on `UserSettingsService`.
 
 ---
 
@@ -12,7 +12,7 @@ Low-level preference reads are served by `UserCoreService` — see `feature_user
 
 ### `updateProfile(changes)` → void
 
-Saves changes to `UserCoreProfile` or `UserSettingsProfile` depending on which fields changed. Called by the Settings screen and `MigrationService`.
+Saves changes to `UserCoreProfile` or `UserSettingsProfile` depending on which fields changed. Called by the Settings screen.
 
 ---
 
@@ -26,7 +26,7 @@ Saves changes to `UserCoreProfile` or `UserSettingsProfile` depending on which f
 
 ### `updateWakingHours(start, end)` → void
 
-Write to `UserCoreProfile`. Changes take effect immediately — `TemporalHelper` reads live from `UserCoreProfile` via `UserCoreService`.
+Write to `UserCoreProfile`. Changes take effect immediately — `TemporalHelperService` caches preferences and refreshes via `UserCoreService.watchProfile()`.
 
 ---
 
@@ -38,15 +38,11 @@ Updates day celebration settings on `UserSettingsProfile`.
 
 ### `updateWeeklyReportSettings(enabled, time)` → void
 
-Updates weekly report settings. Pro/Premium only — enforced by the Settings screen before calling.
+Updates weekly report settings on `UserSettingsProfile`. Pro/Premium only — enforced by the Settings screen before calling.
 
 ### `updateWarningNotifications(enabled)` → void
 
 Writes `warningNotificationsEnabled` to `UserCoreProfile`.
-
-### `updateGraceSettings(enabled, minutes)` → void
-
-Writes grace preferences to `UserCoreProfile`.
 
 ---
 
@@ -54,15 +50,44 @@ Writes grace preferences to `UserCoreProfile`.
 
 ### `recordEncouragementSent(type)` → void
 
-Updates `lastEncouragementType` on `UserSettingsProfile` and clears it after 2 days. Called by `EncouragementService` after emitting `DayCelebrationSignal`.
+Updates `lastEncouragementType` on `UserSettingsProfile`. Clears it (sets to null) if the last encouragement was sent more than 2 days ago — prevents stale deduplication from affecting story selection indefinitely. Called by `EncouragementService` after emitting `DayCelebrationSignal`.
+
+### `getLastEncouragementType()` → int?
+
+Returns `lastEncouragementType` from `UserSettingsProfile`. Returns null if no story has been sent yet or if the value was cleared. Called by `EncouragementService` for story deduplication.
 
 ---
 
 ## Quota Functions
 
-### `checkAndDecrementInsightQuota()` → int
+### `checkAndDecrementInsightQuota()` → Result<int>
 
-Checks free-tier micro-insight quota on `UserSettingsProfile`. Resets the counter if the rolling 7-day window has passed. Returns remaining quota. Called by the micro-insight component before generating.
+Manages the free-tier micro-insight quota on `UserSettingsProfile`. Called only by `AIInsightService` — never by the presentation layer directly.
+
+```
+profile = getSettingsProfile()
+
+// start rolling window on first call
+if profile.insightsResetDate == null:
+  profile.insightsResetDate = now
+  profile.microInsightsUsedThisWeek = 0
+
+// reset if 7-day window has passed
+if now > profile.insightsResetDate + 7 days:
+  profile.insightsResetDate = now
+  profile.microInsightsUsedThisWeek = 0
+
+// check quota
+if profile.microInsightsUsedThisWeek >= AppConfig.freeInsightsPerWeek:
+  return Failure(AppError(type: quota, message: 'Weekly insight quota exhausted'))
+
+// decrement
+profile.microInsightsUsedThisWeek += 1
+saveSettingsProfile(profile)
+return Success(AppConfig.freeInsightsPerWeek - profile.microInsightsUsedThisWeek)
+```
+
+Returns remaining quota on success, or a `Failure` with `type: quota` when exhausted. The presentation layer receives this failure from `AIInsightService` and shows the upgrade prompt.
 
 ---
 
@@ -70,7 +95,7 @@ Checks free-tier micro-insight quota on `UserSettingsProfile`. Resets the counte
 
 ### `completeOnboarding()` → void
 
-Sets `hasCompletedOnboarding: true` on `UserSettingsProfile`. Called once after the onboarding opt-in step.
+Sets `hasCompletedOnboarding: true` on `UserSettingsProfile`. Called once after the onboarding opt-in step completes.
 
 ---
 
@@ -79,12 +104,14 @@ Sets `hasCompletedOnboarding: true` on `UserSettingsProfile`. Called once after 
 - The only writer of `UserCoreProfile` and `UserSettingsProfile` — except `MigrationService` which writes `storageBackend` on `UserCoreProfile`
 - `canAddCommitment` is not stored — computed live by `UserCapabilityService`
 - Features that only need preference reads call `UserCoreService` directly — they do not depend on `UserSettingsService`
-- All temporal preferences read by other features exclusively through `TemporalHelper`
+- `checkAndDecrementInsightQuota()` called only by `AIInsightService` — never by the presentation layer
+- All temporal preferences read by other features exclusively through `TemporalHelperService`
 
 ---
 
 ## Dependencies
 
 - `UserCoreRepository` — writes `UserCoreProfile`
-- `UserSettingsRepository` — writes `UserSettingsProfile`
+- `UserSettingsRepository` — reads and writes `UserSettingsProfile`
 - `UserDefaultPreferences` — default values at profile creation
+- `AppConfig` — `freeInsightsPerWeek`

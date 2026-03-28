@@ -1,4 +1,4 @@
-**File Name**: screen_settings **Feature**: Core **Phase**: 1 (temporal) · Phase 2 (notifications, preferences) · Phase 3 (account, subscription, storage) **Created**: 15-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: screen_settings **Feature**: UserSettings **Phase**: 1 (Calendar & Time) · Phase 2 (Notifications) · Phase 3 (Account, Storage) **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -47,14 +47,14 @@
 
 ### Calendar & Time (Phase 1)
 
-The most culturally sensitive settings. Available from first launch — `TemporalHelper` reads these from day one, so wrong defaults cause wrong behavior immediately.
+The most culturally sensitive settings. Available from first launch — `TemporalHelperService` reads these from day one, so wrong defaults cause wrong behavior immediately.
 
 - **Week starts on** — Sunday / Monday / Friday / Saturday. Default Monday.
 - **Rest days** — multi-select. Default Saturday + Sunday.
 - **Day resets at** — time picker for `dayBoundaryHour`. Default midnight.
 - **Waking hours** — start and end time. Default 7am–10pm. Controls notification delivery window.
 
-Changes take effect immediately — `TemporalHelper` reads live from `UserCoreProfile`.
+Changes take effect immediately — `TemporalHelperService` refreshes its cache via `UserCoreService.watchProfile()`.
 
 ---
 
@@ -101,16 +101,14 @@ Changes take effect immediately — `TemporalHelper` reads live from `UserCorePr
 - Calendar & Time section available from Phase 1 — never hidden
 - Phase 3 sections absent entirely in Phase 1 and 2 — not shown as disabled
 - Settings changes take effect immediately — no save button needed
-- Temporal preference changes propagate instantly via `TemporalHelper`
+- Temporal preference changes propagate instantly via `TemporalHelperService` cache refresh
 
 ---
 
 ## Data Sources
 
-|Data|Source|
-|---|---|
-|Temporal preferences|`UserCoreService.getTemporalPreferences()` — one-time read on open|
-|Notification and encouragement preferences|`UserSettingsService.getPreferences()` — one-time read on open|
-|Temporal preference updates|`UserSettingsService.update*()` functions — writes to UserCoreProfile|
-|Other preference updates|`UserSettingsService.update*()` functions|
-|Add button gate status|`UserCapabilityService.canAddCommitment` — not shown here, but referenced for context|
+| Data                                       | Source                                                                                                                                                                                                                                                                      |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Temporal preferences                       | `UserCoreService.getTemporalPreferences()` — one-time read on open. UserSettings is the one feature permitted to read directly from `UserCoreService` for temporal preferences since it is the writer of `UserCoreProfile`. All other features use `TemporalHelperService`. |
+| Notification and encouragement preferences | `UserSettingsService.getPreferences()` — one-time read on open                                                                                                                                                                                                              |
+| All preference updates                     | `UserSettingsService.update*()` functions                                                                                                                                                                                                                                   |

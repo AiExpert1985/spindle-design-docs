@@ -1,4 +1,4 @@
-**File Name**: usercapabilityservice **Feature**: UserSettings **Phase**: 1 **Created**: 21-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: service_user_capability **Feature**: UserSettings **Phase**: 1 **Created**: 21-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -10,7 +10,7 @@
 
 Access rules are a property of the user — "what is this user currently allowed to do?" They are not a property of the commitment feature. As the app grows, more capability checks may appear (unlock AI Insights, export data, advanced features). All of them belong here, in one place, owned by the feature that represents the user.
 
-Putting this logic inside CommitmentService would require CommitmentService to call PerformanceService and UserSettingsService — features above it in the dependency chain. That violates the one-way dependency rule. The UserSettings feature sits at the top of the chain and can read from Commitment and Performance without any violation.
+Putting this logic inside CommitmentService would require CommitmentService to call PerformanceService and UserSettingsService — features above it in the dependency chain. That violates the one-way dependency rule. UserSettings sits at the top of the chain and can read from Commitment and Performance without any violation.
 
 This is not a security-critical system. The consequence of bypassing the limit is the user creates more commitments than their tier allows — not a risk. UI-level enforcement backed by this service is appropriate for a local-first mobile app.
 
@@ -24,7 +24,7 @@ All three must pass.
 
 **Rate limit** — fewer than `AppConfig.commitmentRateLimitMax` new commitments created within the last `AppConfig.commitmentRateLimitWindowDays` days. Prevents creating many commitments in a short burst.
 
-**Performance threshold** — average performance over the last `AppConfig.commitmentAccessPerformanceWindowDays` days must be at or above `AppConfig.commitmentAccessPerformanceThreshold`. Encourages the user to maintain existing commitments before adding more.
+**Performance threshold** — average performance over the last `AppConfig.commitmentAccessPerformanceWindowDays` days must be at or above `AppConfig.commitmentAccessPerformanceThreshold`. Encourages maintaining existing commitments before adding more.
 
 ---
 
@@ -32,7 +32,7 @@ All three must pass.
 
 The first `AppConfig.onboardingBypassCount` commitments bypass all conditions. New users must be able to set up initial commitments without being blocked by performance thresholds they have not had time to meet.
 
-Active while `UserSettingsProfile.hasCompletedOnboarding == false` and portfolio size is below the bypass count.
+Active while `UserSettingsProfile.hasCompletedOnboarding != true` and portfolio size is below the bypass count. Null and false both treated as onboarding not completed.
 
 ---
 
@@ -43,15 +43,13 @@ The add commitment button watches `canAddCommitment` via a Riverpod provider:
 - `true` → button active, tap opens the commitment form
 - `false` → button dimmed, tap shows a dialog with the specific reason
 
-`getBlockedReason()` returns why access is currently denied.
-
-```
+```dart
 enum BlockedReason { tierCeiling, rateLimitExceeded, performanceBelowThreshold }
 
-getBlockedReason() → BlockedReason?   // null if not blocked
+BlockedReason? getBlockedReason()   // null if not blocked
 ```
 
-The button never calls any evaluation function — it only observes the result.
+The button never calls any evaluation function — it only observes the provider result.
 
 ---
 
@@ -59,18 +57,21 @@ The button never calls any evaluation function — it only observes the result.
 
 `canAddCommitment` is recalculated when any of its inputs may have changed:
 
-- `InstanceCreatedEvent` or `InstanceUpdatedEvent` — commitment count or state changed
-- `InstancePermanentlyDeletedEvent` — portfolio size changed
-- `LongIntervalTickEvent` at day boundary — rate limit rolling window may have shifted
+- `CommitmentService.onInstanceCreated` — commitment count changed
+- `CommitmentService.onInstanceUpdated` — commitment state changed
+- `CommitmentService.onInstancePermanentlyDeleted` — portfolio size changed
+- `TemporalHelperService.onDayStarted` — rate limit rolling window may have shifted
 - User subscription tier change — tier ceiling may have changed
+
+**Why `onDayStarted` instead of tick-based boundary detection:** `TemporalHelperService` already detects day boundaries and publishes `DayStartedEvent`. Subscribing here avoids duplicating boundary detection logic and is consistent with the rule that all features react to boundary events from `TemporalHelperService`.
 
 ---
 
 ## Rules
 
 - The only service that writes `canAddCommitment`
-- Recalculation triggered by events and day boundary ticks — never by the presentation layer
-- All thresholds come from AppConfig — never hardcoded
+- Recalculation triggered by events — never by the presentation layer
+- All thresholds come from `AppConfig` — never hardcoded
 - `getBlockedReason()` is a pure read — never triggers recalculation
 - Onboarding bypass checked first — short-circuits all other conditions
 
@@ -78,10 +79,9 @@ The button never calls any evaluation function — it only observes the result.
 
 ## Dependencies
 
-- EventBus — subscribes to InstanceCreatedEvent, InstanceUpdatedEvent, InstancePermanentlyDeletedEvent, LongIntervalTickEvent
-- CommitmentService — reads portfolio size and recently created count
-- PerformanceService — reads average performance for the access window
-- UserCoreService — reads subscription tier
-- UserSettingsService — reads onboarding status
-- TemporalHelper — day boundary check on tick
-- AppConfig — all thresholds and limits
+- `CommitmentService` — subscribes to `onInstanceCreated`, `onInstanceUpdated`, `onInstancePermanentlyDeleted`; calls `getPortfolioSize()`, `getActiveCount()`, `getRecentlyCreated()`
+- `TemporalHelperService` — subscribes to `onDayStarted`
+- `PerformanceService.getPerformanceForPeriod()` — access window performance
+- `UserCoreService.getTier()` — subscription tier
+- `UserSettingsService` — reads onboarding status
+- `AppConfig` — all thresholds and limits

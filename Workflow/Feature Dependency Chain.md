@@ -310,9 +310,11 @@ Presentation only. Screens and components that assemble data from multiple featu
 
 Top-of-chain feature. Depends on Commitment and Performance via `UserCapabilityService`.
 
-**Public functions (UserSettingsService):** `updateProfile()`, `updateWeekStartDay()`, `updateRestDays()`, `updateDayBoundaryHour()`, `updateWakingHours()`, `updateCelebrationSettings()`, `updateWeeklyReportSettings()`, `updateWarningNotifications()`, `recordEncouragementSent()`, `checkAndDecrementInsightQuota()`, `completeOnboarding()`
+**Public functions (UserSettingsService):** `updateProfile()`, `updateWeekStartDay()`, `updateRestDays()`, `updateDayBoundaryHour()`, `updateWakingHours()`, `updateCelebrationSettings()`, `updateWeeklyReportSettings()`, `updateWarningNotifications()`, `recordEncouragementSent()`, `getLastEncouragementType()`, `checkAndDecrementInsightQuota()`, `completeOnboarding()`
 
 **Public functions (UserCapabilityService):** `getBlockedReason()`, `canAddCommitment` (Riverpod provider)
+
+**Subscribes to (UserCapabilityService):** `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent` (Commitment), `DayStartedEvent` (TemporalHelper)
 
 **Calls directly:** `CommitmentService.getPortfolioSize()`, `CommitmentService.getActiveCount()`, `CommitmentService.getRecentlyCreated()`, `PerformanceService.getPerformanceForPeriod()`
 

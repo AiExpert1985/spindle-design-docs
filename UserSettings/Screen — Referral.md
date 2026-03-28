@@ -1,4 +1,4 @@
-**File Name**: screen_referral **Feature**: Core **Phase**: 3 **Created**: 17-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: screen_referral **Feature**: UserSettings **Phase**: 3 **Created**: 17-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 
@@ -64,13 +64,13 @@ Referral link format: `spindle.app/join?ref={code}`
 - Each Pro / Premium user has a permanent referral code on their `UserSettingsProfile` — generated once at account creation
 - When someone installs via the link, they receive 30% off their first month at the paywall — applied via RevenueCat promotional offers, no custom backend needed
 - A referral is **activated** only after the referred user earns their first cup — one full week of performance at ≥ 60%
-- Activated referral count is stored on `UserSettingsProfile.activatedReferralCount` — incremented via Firebase Cloud Function when the referred user's first cup is written, never by the app directly
+- `activatedReferralCount` stored on `UserSettingsProfile` — incremented via Firebase Cloud Function when the referred user's first cup is written, never by the app directly
 
 ---
 
 ## Rules
 
-- Screen is unreachable for free users and users below level 2 — gate checked before navigation in the Progression screen, not only inside this screen
+- Screen is unreachable for free users and users below level 2 — gate checked before navigation in the Progression screen
 - No backend call made from this screen — sharing is local, referral tracking happens server-side
 - Card always reflects current state — never cached between opens
 
@@ -81,8 +81,9 @@ Referral link format: `spindle.app/join?ref={code}`
 |Data|Source|
 |---|---|
 |Current level and points|`ProgressionService.getProgressionSummary()`|
-|Referral code|`UserSettingsProfile.referralCode`|
-|Activated referral count|`UserSettingsProfile.activatedReferralCount`|
+|Cup breakdown|`AchievementService.getCupHistory(from, to)`|
+|Referral code|`UserSettingsProfile.referralCode` via `UserSettingsService`|
+|Activated referral count|`UserSettingsProfile.activatedReferralCount` via `UserSettingsService`|
 |Referral unlock status|`ProgressionService.isReferralUnlocked()`|
 
 ---

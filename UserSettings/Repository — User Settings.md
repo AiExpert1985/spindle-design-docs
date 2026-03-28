@@ -2,21 +2,27 @@
 
 ---
 
-**Purpose:** storage interface for `UserSettingsProfile`. The high-level user state record — encouragement tracking, AI quota, onboarding, referral. Called only by `UserSettingsService`.
+**Purpose:** storage interface for `UserSettingsProfile`. Called only by `UserSettingsService`.
 
-`UserCoreProfile` (preferences, tier, temporal settings) has its own repository inside `feature_usercore`.
+`UserCoreProfile` (preferences, tier, temporal settings) has its own repository inside the UserCore feature.
 
 ---
 
-## Operations
+## Interface
 
-|Operation|Input|Output|
-|---|---|---|
-|`getSettingsProfile`|—|UserSettingsProfile?|
-|`saveSettingsProfile`|UserSettingsProfile|— full replace|
-|`watchSettingsProfile`|—|Stream<UserSettingsProfile?>|
+```dart
+abstract class UserSettingsRepository {
+  Future<UserSettingsProfile?> getSettingsProfile();
+  Future<void> saveSettingsProfile(UserSettingsProfile profile);
+  Stream<UserSettingsProfile?> watchSettingsProfile();
+}
+```
 
-`getSettingsProfile` returns null on first launch — `UserSettingsService` creates the profile with defaults from `UserDefaultPreferences`.
+`getSettingsProfile` — returns null on first launch. `UserSettingsService` creates the profile with defaults from `UserDefaultPreferences` when null is returned.
+
+`saveSettingsProfile` — full replace. No partial updates.
+
+`watchSettingsProfile` — live stream. Used by screens that observe preference state.
 
 ---
 
@@ -34,4 +40,4 @@ Covered by existing security rule.
 
 - Called only by `UserSettingsService`
 - One record only — never create a second profile
-- `saveSettingsProfile` is always a full replace — no partial updates
+- `saveSettingsProfile` is always a full replace
