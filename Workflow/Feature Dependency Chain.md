@@ -172,6 +172,8 @@ No events published. No public read functions — internal only. See `service_no
 
 **Publishes (internal only):** `CommitmentEvent` — consumed only by `CommitmentIdentityService`
 
+**Subscribes to:** `Heartbeat.longIntervalTick` — for tick-based instance closing and replication. Not for boundary detection — instance closing is purely time-based (`regenerationWindow.windowEnd <= tick.timestamp`).
+
 **Public functions (CommitmentService):** `getDefinition()`, `watchActiveCommitments()`, `watchFrozenCommitments()`, `watchDeletedCommitments()`, `watchCompletedCommitments()`, `getStateTransitionLog()`, `getPortfolioSize()`, `getActiveCount()`, `getRecentlyCreated()`, `getCommitmentCountsByState()`
 
 **Public functions (CommitmentIdentityService):** `getInstances()`, `watchInstancesForDay()`, `getCurrentInstance()`, `getInstanceForCommitmentOnDate()`, `getInstancesForDay()`, `getInstancesForWeek()`, `updateLivePerformance()`

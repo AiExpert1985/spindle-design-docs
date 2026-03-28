@@ -79,9 +79,15 @@ InstanceUpdatedEvent
   definitionId: String
   windowStart: DateTime
   snapshot: CommitmentSnapshot
+    name: String
+    commitmentType: CommitmentType
+    recurrence: Recurrence
+    target: Target
+    activityWindow: ActivityWindow
+    commitmentState: CommitmentState
 ```
 
-Structural change on instance — commitmentState, status, currentTarget, recurrence, activityWindow. Does not fire for `livePerformance` changes. Carries `CommitmentSnapshot` so subscribers have all data they need without a follow-up service call. `CommitmentSnapshot` defined in `service_commitment`.
+Structural change on instance — commitmentState, status, currentTarget, recurrence, activityWindow. Does not fire for `livePerformance` changes. Carries `CommitmentSnapshot` so subscribers have all data they need without a follow-up service call.
 
 ```
 InstancePermanentlyDeletedEvent

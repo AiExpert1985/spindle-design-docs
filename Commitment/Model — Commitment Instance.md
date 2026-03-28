@@ -71,8 +71,8 @@ ActivityWindow
 - **recurrence** — used to calculate the next window start when this instance spawns its successor.
 - **regenerationWindow** — the accountability period. `windowStart` and `windowEnd` are immutable after creation.
 - **activityWindow** — the user's preferred time-of-day slot and notification settings. Governs notification timing only — the instance always lives its full `regenerationWindow` duration regardless.
-- **currentTarget** — the target in effect for this window. Reflects the definition's target at creation time. Updated if the definition target changes, so performance is always calculated against the correct value.
-- **commitmentState** — the commitment's current lifecycle state. Updated by `CommitmentIdentityService` whenever the commitment changes. Upper features read this instead of querying the definition.
+- **currentTarget** — the target in effect for this window. Reflects the definition's target at creation time. On a pending instance, updated when the definition target changes so the pending window always reflects the current intent. Closed instances are never modified — their target is the historical fact of what was in effect at the time.
+- **commitmentState** — the commitment's current lifecycle state. On a pending instance, updated by `CommitmentIdentityService` whenever the commitment state changes. Closed instances are never modified — their state is preserved as it was when the window closed.
 - **status** — pending or closed. One-way transition. Change from pending to closed triggers `InstanceUpdatedEvent`.
 - **livePerformance** — how much of the target was achieved, as a percentage. Maintained by `PerformanceService`. Do: can exceed 100%. Avoid: capped at 100%. Does not trigger `InstanceUpdatedEvent` when it changes.
 - **createdAt** — immutable.
@@ -85,6 +85,8 @@ ActivityWindow
 - `CommitmentIdentityService` is the only service that creates or deletes instances
 - `PerformanceService` is the only service that writes `livePerformance`
 - `regenerationWindow`, `recurrence`, `commitmentType`, `createdAt` are immutable after creation
+- Closed instances are immutable — the only exception is `livePerformance`, which can be updated retroactively to allow the user to log forgotten activity
+- Definition changes (target, state, recurrence) apply to the pending instance only — closed instances are never modified
 - `livePerformance` changes do not trigger `InstanceUpdatedEvent` — signalled by `PerformanceUpdatedEvent`
 - `livePerformance` is initialized to `0.0` on creation — valid ground state before any activity
 - Status change from pending to closed always triggers `InstanceUpdatedEvent`

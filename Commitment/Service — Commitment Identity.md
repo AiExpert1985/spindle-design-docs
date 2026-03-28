@@ -24,7 +24,7 @@ There is always exactly one pending instance per commitment. When the pending in
 
 When an instance window ends, close and replicate happen as sequential steps in the same tick handler — not through events. `_closeInstance()` sets status to closed, then `_generateNextInstance()` is called immediately. `InstanceUpdatedEvent` is published after both steps complete. This avoids self-subscription and keeps the sequence atomic.
 
-Replication uses only data from the closing instance. The definition is consulted only when no prior instance exists (catch-up on first launch after a brand new commitment) — not on every replication.
+Replication uses only data from the closing instance's DNA snapshot. The definition is consulted only once — when a brand new commitment has no prior instances at all (first launch after creation). After the first instance exists, all subsequent replication is self-contained.
 
 For `SpecificWeekDays`, `calculateNextWindowStart` uses the `weekDays` list to find the next configured day. Example: for [Sun, Fri], a Sunday instance spawns a Friday successor; a Friday instance spawns a Sunday successor on the following week.
 
@@ -58,11 +58,11 @@ Deletes all instances including closed history. Publishes `InstancePermanentlyDe
 
 ### `Heartbeat.longIntervalTick` → `_onTick(tick)`
 
-**Close and replicate:** for each pending instance whose `regenerationWindow.windowEnd <= now`, calls `_closeInstance()` then `_generateNextInstance()` sequentially. Publishes `InstanceUpdatedEvent` after both steps complete.
+**Close and replicate:** for each pending instance whose `regenerationWindow.windowEnd <= tick.timestamp`, calls `_closeInstance()` then `_generateNextInstance()` sequentially. Publishes `InstanceUpdatedEvent` after both steps complete.
 
 Closing is unconditional — it happens regardless of `commitmentState`. What `commitmentState` controls is replication only: if `commitmentState == active`, a successor is generated. If not active, the instance closes and no successor is created.
 
-**Catch-up:** for each commitment with `commitmentState == active` and no pending instance (device was inactive at close time), replicates from the last closed instance. If no closed instance exists, reads definition once and generates from scratch.
+**Catch-up:** when the tick fires after the app was inactive, instances whose windows have already ended are processed in the same path — close and replicate — because the condition `regenerationWindow.windowEnd <= tick.timestamp` catches all overdue windows, not just the immediate one. No separate catch-up logic needed. No last-closed-instance lookup. The close-and-replicate loop runs for every pending instance overdue at tick time.
 
 All tick operations process everything due at or before the tick timestamp — this is what makes catch-up on app open free.
 
@@ -164,8 +164,7 @@ All instances for a given week, optionally filtered by commitment.
 - Internal stream — subscribes to `CommitmentEvent` published by `CommitmentService`
 - `Heartbeat` — subscribes to `longIntervalTick`
 - `CommitmentInstanceRepository` — instance storage
-- `CommitmentService` — reads definition for catch-up generation when no prior instance exists
-- `TemporalHelperService` — day boundary detection for catch-up logic
+- `CommitmentService` — reads definition for first-instance generation on a brand new commitment with no prior instances
 
 ---
 
