@@ -41,12 +41,10 @@ id:      "warning_{definitionId}_{windowDate}"
 
 Warning lead time formatted via `TemporalHelper`:
 
-- > 60 min → rounded to nearest half hour: "about 2 hours"
-    
-- 15–60 min → rounded to nearest 5 minutes: "30 minutes"
-    
+- ≥ 1 day → rounded to nearest day: "1 day left", "2 days left"
+- < 1 day, ≥ 2 hours → rounded to nearest hour: "3 hours left", "15 hours left"
+- < 2 hours → rounded to nearest 15 minutes: "45 minutes left", "1 hour 15 minutes left"
 - < `AppConfig.minimumWarningLeadMinutes` → record not written
-    
 
 ### Checkin notification
 
@@ -67,13 +65,18 @@ Both records are written only when `commitmentState == active`.
 Subscribes to `Heartbeat.shortIntervalTick`. On each tick:
 
 1. Query `getDue(now)` for all records with `notificationTimestamp <= now`
-2. For each due record: call `NotificationService.push(message, route)`, then delete the record
+2. For each due record: call `ActivityService.getTotalLoggedForCommitmentOnDate(definitionId, windowDate)`
+3. If total > 0 — user already logged — delete the record silently, do not fire
+4. If total == 0 — call `NotificationService.push(message, route)`, then delete the record
+
+Checking at fire time against the current state of the log is deliberate. If the user logged and then deleted the entry before the notification fires, the check correctly finds no activity and fires the reminder. A reactive approach — clearing the record when activity is logged — would not recover from this case.
 
 ---
 
 ## Dependencies
 
 - `CommitmentIdentityService` — subscribes to `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`
+- `ActivityService` — checks total logged before firing each notification
 - `ScheduledNotificationRepository` — reads and writes pending records
 - `Heartbeat` — subscribes to `shortIntervalTick`
 - `NotificationService` — delivers fired notifications

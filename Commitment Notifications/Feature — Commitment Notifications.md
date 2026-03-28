@@ -2,6 +2,8 @@
 
 ---
 
+# Feature — CommitmentNotifications
+
 CommitmentNotifications watches commitment windows and fires timely notifications to keep the user aware of approaching and closing windows — without knowing anything about performance, scoring, or what the user actually logged.
 
 ---
@@ -16,7 +18,7 @@ CommitmentNotifications bridges this gap. It is the only feature that combines k
 
 ## Position in the System
 
-Sits above Commitment and Infrastructure, and uses TemporalHelper for time formatting. Depends on Commitment for instance events, Heartbeat for the short-interval tick, NotificationService for delivery, and TemporalHelper to format human-readable lead times in message text.
+Sits above Commitment and Activity, and uses Infrastructure and TemporalHelper. Depends on Commitment for instance events, Activity to check whether the user already logged before firing, Heartbeat for the short-interval tick, NotificationService for delivery, and TemporalHelper to format human-readable lead times in message text.
 
 Consuming only — it publishes no events. Its entire output is notifications delivered to the user's device.
 
@@ -32,7 +34,7 @@ This means state changes are handled automatically and for free. When a commitme
 
 The replace-all approach on every instance change is deliberate. Patching individual records when specific fields change would require tracking every possible transition — which field changed, whether the timing was affected. Replace-all is simpler and always correct: whatever changed, the records are fresh.
 
-**Firing on time.** On every short-interval tick, the feature queries for all records whose timestamp is at or before the current time and fires each one via NotificationService, then deletes the record immediately. Deletion is the idempotency mechanism — a fired notification leaves no record, so the same notification cannot fire twice regardless of how many ticks pass.
+**Firing on time.** On every short-interval tick, the feature queries for all records whose timestamp is at or before the current time. For each due record, it checks whether the user already logged activity for that commitment on that window's date. If they have, the record is deleted silently — no notification sent. If they have not, the notification fires and the record is deleted. Checking at fire time against the current state of the log handles the edge case where the user logged and then deleted the entry — the check correctly finds no activity and fires the reminder.
 
 **Deterministic record IDs.** Each record's ID is constructed from the commitment ID, window date, and notification type. This means re-scheduling a notification is always a replace, never a duplicate insert. No cleanup of old records needed on reschedule.
 

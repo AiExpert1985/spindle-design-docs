@@ -20,6 +20,8 @@ Lower features never know upper features exist. A lower feature publishes events
 
 Not features. No lifecycle, no state, no events. Static utility classes available to any layer above Domain.
 
+- **TickGuard** — idempotency utility for tick subscribers. See `tick_guard`.
+
 `AchievementRecord`, `AchievementType`, and `AchievementSubtype` are owned by the **Achievements feature** — not the Domain layer. Producing features reference them as downward dependencies since Achievements sits below them in the chain.
 
 ---
@@ -36,12 +38,12 @@ UserCore              (UserCoreProfile, preferences, tier — read by any featur
       ↓
 TemporalHelper        (answers time questions, publishes day/week boundary events)
       ↓
-Notification Scheduling
-  (watches Commitment instances, watches Heartbeat, fires via NotificationService)
-      ↓
 Commitment            ✓ LOCKED
       ↓
 Activity              ✓ LOCKED
+      ↓
+CommitmentNotifications
+  (watches Commitment instances, checks Activity before firing, fires via NotificationService)
       ↓
 Performance           ✓ LOCKED
       ↓
@@ -78,7 +80,7 @@ UserSettings          (writes UserCoreProfile, capability checks,
 
 **UserCore is the preference foundation.** Any feature that needs user preferences or tier reads from `UserCoreService`. Only `UserSettingsService` writes to it.
 
-**Notification Scheduling sits above Commitment.** It subscribes to instance events from Commitment and calls NotificationService downward. It is fully removable — deleting it stops notifications, nothing else changes.
+**CommitmentNotifications sits above Activity.** It subscribes to instance events from Commitment, checks Activity before firing to avoid notifying a user who already logged, and calls NotificationService downward for delivery. It is fully removable — deleting it stops notifications, nothing else changes.
 
 **Commitment's public interface is instance events.** `CommitmentEvent` is internal. No feature outside Commitment subscribes to it.
 
@@ -116,6 +118,8 @@ UserSettings          (writes UserCoreProfile, capability checks,
 
 **Publishes:** `LongIntervalTick(timestamp)`, `ShortIntervalTick(timestamp)`
 
+**Public functions (TickService):** `getLastTickTimestamp()`
+
 No domain knowledge. No subscriptions. See `heartbeat`.
 
 ---
@@ -138,7 +142,7 @@ No events published. No subscriptions. See `notification_service`.
 
 ### UserCore
 
-**Public functions (UserCoreService):** `getProfile()`, `getTier()`, `getActivityWindowDefaults(recurrence)`, `watchProfile()`
+**Public functions (UserCoreService):** `getProfile()`, `getTier()`, `getTemporalPreferences()`, `getActivityWindowDefaults(recurrence)`, `watchProfile()`
 
 No events published. No events subscribed. Pure read-only interface. See `service_user_core`, `repository_user_core`, `model_user_core_profile`.
 
@@ -156,23 +160,11 @@ No events published. No events subscribed. Pure read-only interface. See `servic
 
 ---
 
-### Notification Scheduling
-
-**Subscribes to:** instance change events (Commitment), `ShortIntervalTick` (Heartbeat)
-
-**Calls directly:** `NotificationService.push()`, `TemporalHelperService` (for warning time formatting)
-
-No events published. No public read functions — internal only. See `service_notification_scheduling`.
-
----
-
 ### Commitment ✓ LOCKED
 
 **Publishes (public):** `InstanceCreatedEvent(instanceId, definitionId, name, windowStart)`, `InstanceUpdatedEvent(instanceId, definitionId, windowStart, snapshot)`, `InstancePermanentlyDeletedEvent(definitionId)`
 
 **Publishes (internal only):** `CommitmentEvent` — consumed only by `CommitmentIdentityService`
-
-**Subscribes to:** `Heartbeat.longIntervalTick` — for tick-based instance closing and replication. Not for boundary detection — instance closing is purely time-based (`regenerationWindow.windowEnd <= tick.timestamp`).
 
 **Public functions (CommitmentService):** `getDefinition()`, `watchActiveCommitments()`, `watchFrozenCommitments()`, `watchDeletedCommitments()`, `watchCompletedCommitments()`, `getStateTransitionLog()`, `getPortfolioSize()`, `getActiveCount()`, `getRecentlyCreated()`, `getCommitmentCountsByState()`
 
@@ -187,6 +179,16 @@ No events published. No public read functions — internal only. See `service_no
 **Public functions:** `recordEntry()`, `editEntry()`, `deleteEntry()`, `getTotalLoggedForCommitmentOnDate()`, `getEntriesForDay()`, `getEntriesForWeek()`, `getEntriesForPeriod()`
 
 **Subscribes to:** `InstancePermanentlyDeletedEvent` (Commitment)
+
+---
+
+### CommitmentNotifications
+
+**Subscribes to:** `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent` (Commitment), `ShortIntervalTick` (Heartbeat)
+
+**Calls directly:** `ActivityService.getTotalLoggedForCommitmentOnDate()`, `NotificationService.push()`, `TemporalHelperService` (for warning lead time formatting)
+
+No events published. No public read functions — internal only. See `service_commitment_notifications`.
 
 ---
 
@@ -314,7 +316,7 @@ Top-of-chain feature. Depends on Commitment and Performance via `UserCapabilityS
 |---|---|
 |Any feature outside Commitment subscribes to `CommitmentEvent`|Internal event|
 |Heartbeat, Logger, or NotificationService calls any feature|Base features are domain-agnostic — never call upward|
-|Notification Scheduling calls `ActivityService` or `PerformanceService`|Above its position — scheduling only, no scoring|
+|`CommitmentNotifications` calls `PerformanceService`|Above its position — notification logic only, no scoring|
 |Cups calls `StreakService`|Same-level dependency|
 |Any producing feature skips `AchievementService` and writes `AchievementRecord` directly|All achievements flow through `addAchievement()` — no exceptions|
 |`AchievementService` calls any producing feature for reads|All reads are self-contained from its own collection|
@@ -323,7 +325,7 @@ Top-of-chain feature. Depends on Commitment and Performance via `UserCapabilityS
 |`ProgressionService` reads `AchievementService` directly|ProgressionService only knows points — ScoringService handles the translation|
 |Any feature reads temporal preferences from `UserSettingsService`|Read from `UserCoreService` only|
 |Any feature calls `UserCoreService.getTemporalPreferences()` directly|Call `TemporalHelperService` — it owns that dependency|
-|Any feature detects day or week boundaries independently from a tick timestamp|Boundary detection is centralized in `TemporalHelperService` — subscribe to its events instead|
+|Any feature subscribes to `Heartbeat` for boundary detection|Subscribe to `TemporalHelperService` events instead|
 |Any feature publishes `WeekEndedEvent` or `DayEndedEvent`|Published only by `TemporalHelperService`|
 |`TemporalHelperService` imports any feature above it in the stack|Only calls `UserCoreService` and subscribes to `Heartbeat`|
 
