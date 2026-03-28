@@ -1,16 +1,8 @@
-**File Name**: logger **Feature**: Infrastructure **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: logger **Feature**: Infrastructure **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
 **Purpose:** the single entry point for all diagnostic output in the app. Every feature that needs to record an error, warning, or debug message calls `LoggerService`. Nothing writes to the console, a file, or a remote service directly.
-
----
-
-## Why a Centralized Logger
-
-Without a centralized logger, diagnostic output scatters — some features use `print()`, others use `debugPrint()`, others are silent. There is no consistent format, no way to control output per environment, and no path to adding persistent or remote logging later.
-
-A centralized abstraction solves all of this. Features call one interface. The implementation behind it is swappable. Adding a new output target — database, remote crash service — requires changing one implementation, not touching every feature.
 
 ---
 

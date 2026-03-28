@@ -1,4 +1,4 @@
-**File Name**: heartbeat **Feature**: Infrastructure **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: heartbeat **Feature**: Infrastructure **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
@@ -23,7 +23,6 @@ abstract class TickService {
   Stream<LongIntervalTick> get longIntervalTick;
   Stream<ShortIntervalTick> get shortIntervalTick;
   void onFire(DateTime timestamp);
-  DateTime? getLastTickTimestamp();
 }
 ```
 
@@ -34,9 +33,11 @@ class LongIntervalTick  { final DateTime timestamp; }
 class ShortIntervalTick { final DateTime timestamp; }
 ```
 
-### `getLastTickTimestamp() → DateTime?`
+---
 
-Returns the timestamp of the last tick fired, or null on first launch. Persisted to local storage on every tick before emitting. Used by any feature on app open to detect missed boundaries while the app was closed — the feature reads this value and processes any missed intervals through its normal tick handler using TickGuard for idempotency.
+## App Open Catch-Up
+
+No special catch-up logic is needed. Each subscriber processes everything due at or before the tick timestamp — so when the app opens and the first WorkManager tick fires, any work missed while the app was closed is handled naturally through the same path as a live tick. Subscribers must be written with this in mind: given a timestamp, do all work that was due at or before it.
 
 ---
 
@@ -47,7 +48,6 @@ One WorkManager periodic task, ~15 minutes. Both streams receive the same tick.
 ```dart
 class DefaultTickService implements TickService {
   final _controller = StreamController<DateTime>.broadcast();
-  DateTime? _lastTimestamp;
 
   @override
   Stream<LongIntervalTick> get longIntervalTick =>
@@ -58,14 +58,7 @@ class DefaultTickService implements TickService {
       _controller.stream.map((t) => ShortIntervalTick(t));
 
   @override
-  DateTime? getLastTickTimestamp() => _lastTimestamp;
-
-  @override
-  void onFire(DateTime now) {
-    _lastTimestamp = now;
-    _persistLastTimestamp(now);
-    _controller.add(now);
-  }
+  void onFire(DateTime now) => _controller.add(now);
 }
 ```
 
@@ -81,20 +74,13 @@ Two separate WorkManager tasks when short-interval accuracy matters.
 class DualTickService implements TickService {
   final _long  = StreamController<LongIntervalTick>.broadcast();
   final _short = StreamController<ShortIntervalTick>.broadcast();
-  DateTime? _lastTimestamp;
 
   @override
   Stream<LongIntervalTick>  get longIntervalTick  => _long.stream;
   @override
   Stream<ShortIntervalTick> get shortIntervalTick => _short.stream;
-  @override
-  DateTime? getLastTickTimestamp() => _lastTimestamp;
 
-  void onLongFire(DateTime now) {
-    _lastTimestamp = now;
-    _persistLastTimestamp(now);
-    _long.add(LongIntervalTick(now));
-  }
+  void onLongFire(DateTime now)  => _long.add(LongIntervalTick(now));
   void onShortFire(DateTime now) => _short.add(ShortIntervalTick(now));
 }
 ```
@@ -103,17 +89,9 @@ Swapping from `DefaultTickService` to `DualTickService` requires changing one de
 
 ---
 
-## App Open Catch-Up
-
-On app open, any feature that needs to process missed boundaries calls `getLastTickTimestamp()` and compares against the current time. For each missed interval it calls its own tick handler with the historical timestamp. TickGuard prevents double-work — catch-up uses the same idempotency path as live ticks.
-
-Short interval catch-up is not replayed — only long interval matters. Missed short-interval checks are harmless to skip.
-
----
-
 ## Platform Accuracy
 
-WorkManager does not guarantee exact intervals. Long interval: expect 10–20 minutes in practice. Short interval: expect 1–3 minutes. This is acceptable — `TemporalHelper` conditions are checked on each tick arrival regardless of exact timing.
+WorkManager does not guarantee exact intervals. Long interval: expect 10–20 minutes in practice. Short interval: expect 1–3 minutes. This is acceptable for a commitment helper — no behavior is time-critical to the minute.
 
 ---
 
@@ -121,8 +99,6 @@ WorkManager does not guarantee exact intervals. Long interval: expect 10–20 mi
 
 - `TickService` is the abstraction — never reference `DefaultTickService` or `DualTickService` outside dependency injection
 - Tick events carry timestamp only — no pre-computed booleans, no domain knowledge
-- Subscribers use `TemporalHelper` for all time-based condition checks — never raw timestamp comparisons
-- Subscribers that run logic without consuming a record use `TickGuard` for idempotency — see `tick_guard`
+- Subscribers process everything due at or before the tick timestamp — this is what makes catch-up free
 - Heartbeat never calls any feature service — it only emits ticks
-- `getLastTickTimestamp()` returns null on first launch — callers must handle null
 - Adding a new time-based behavior requires zero changes to Heartbeat
