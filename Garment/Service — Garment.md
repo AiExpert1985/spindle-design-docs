@@ -53,10 +53,11 @@ Idempotent — profile creation exits silently if profile already exists. Day re
 5. newDelta = GarmentDeltaCalculator.calculate(performanceValue)
 6. record.delta = newDelta
 7. Save updated day record
-8. profile.completionPercent = max(0.0, profile.completionPercent - oldDelta + newDelta)
-9. Save updated profile
-10. Publish GarmentUpdatedEvent
-11. _detectAchievements(profile, profile.completionPercent + oldDelta - newDelta)
+8. previousPercent = profile.completionPercent
+9. profile.completionPercent = max(0.0, previousPercent - oldDelta + newDelta)
+10. Save updated profile
+11. Publish GarmentUpdatedEvent
+12. _detectAchievements(profile, previousPercent)
 ```
 
 ### `InstancePermanentlyDeletedEvent` → `_onCommitmentDeleted(event)`
@@ -77,19 +78,19 @@ return accelerationValue * livePerformance
 
 ### `_detectAchievements(profile, previousPercent)`
 
-Checks all garment achievement thresholds. Called after every garment update with the previous `completionPercent`. Fires only on genuine upward threshold crossings.
+Uses a simple level formula — no threshold list, no looping. An achievement fires when the user crosses into a new band for the first time.
 
 ```
-// Each band crossing fires exactly once — on the upward transition only
-thresholds = [100.0, 200.0, 300.0, 400.0]
-subtypes   = [garmentCompleted, garmentFortified, garmentGolded, garmentDiamond]
+newLevel = floor(profile.completionPercent / 100)
 
-for each (threshold, subtype) in zip(thresholds, subtypes):
-  if previousPercent < threshold and profile.completionPercent >= threshold:
-    _addAchievement(subtype, profile)
+if newLevel > profile.currentLevel:
+  subtypes = [_, garmentCompleted, garmentFortified, garmentGolded, garmentDiamond]
+  _addAchievement(subtypes[newLevel], profile)
+  profile.currentLevel = newLevel
+  Save updated profile
 ```
 
-Adding a new phase means adding one threshold and one subtype — nothing else changes.
+`currentLevel` starts at 0 (no band reached). Each band crossing increments it by exactly 1 — even if `completionPercent` jumps multiple bands in one update (e.g. a large retroactive log), only the highest newly crossed band fires. Adding a new phase means adding one entry to the subtypes list — nothing else changes.
 
 ### `_addAchievement(subtype, profile)`
 

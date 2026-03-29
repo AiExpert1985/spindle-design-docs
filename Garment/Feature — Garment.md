@@ -14,7 +14,7 @@ Numbers don't make effort feel real. A streak count and a percentage are accurat
 
 The garment is built on two truths. First, habits are formed day by day — like weaving, each kept day adds a thread. Skip a day and you add nothing. Keep going and something real takes shape. Second, a visual garment communicates that progress in a way no percentage can — its size, its fill, its completeness tells the story at a glance.
 
-For Do commitments, the garment starts as a small seed and is woven toward completion with each successful day. For Avoid commitments, the garment is shown as visually complete from the start — representing the habit's current grip — and unravels as the user resists, back toward the bare spindle. The spindle is where all garments end for Avoid. Commitment is the thread, consistency is the weaving, character is the rope.
+For Do commitments, the garment starts as a small seed and is woven toward completion with each successful day. For Avoid commitments, the garment is shown as visually complete from the start — representing the habit's current grip — and unravels as the user resists, back toward the bare spindle. The spindle is the origin of all garments — for Do, they grow away from it; for Avoid, they return to it. Commitment is the thread, consistency is the weaving, character is the rope.
 
 When a garment completes, the journey does not end. The user keeps performing — fortifying the garment with layers of iron, then gold, then diamond. Each full cycle of continued effort adds the next layer. Without an upper bound, the garment keeps rewarding consistency indefinitely. A habit deeply embedded deserves to look different from one just starting.
 
@@ -28,7 +28,7 @@ Sits above Performance, Streak, and Achievements. Depends on Performance for sco
 
 ## How It Works
 
-When a commitment is created, Garment creates a profile for it — assigning a garment type based on the commitment's shape, and thread colors that become its permanent visual identity. From that point, the garment responds to every performance change through three concepts: the day record, the accelerator, and the delta.
+When a commitment is created, Garment creates a profile for it — assigning a garment type based on the commitment's shape, and thread colors that become its permanent visual identity. From that point, the garment responds to every performance change through the day record, the accelerator, and the delta calculation.
 
 ---
 
@@ -79,7 +79,7 @@ All constants are configurable. The formula is abstracted — the entire calcula
 
 ### Achievement Detection
 
-After every update, the service checks whether a band threshold was crossed — 100% (garment complete), 200% (iron fortify complete), 300% (gold complete), 400% (diamond complete). Detection fires only on genuine upward crossings. Achievement records are written to the Achievements feature below Garment.
+After every update, the service checks whether the user has entered a new band using a simple formula: `floor(completionPercent / 100)`. If this value exceeds `currentLevel` on the profile, a new achievement fires and `currentLevel` is updated. One check, no list of thresholds, no risk of double-firing. Adding a new phase requires no logic change — only a new achievement subtype.
 
 ---
 
@@ -118,7 +118,7 @@ The renderer is abstracted — `GarmentRenderer` is an interface with `SimpleThr
 - `GarmentDayRecord.accelerationValue` is immutable — snapshotted at day open, never updated
 - `completionPercent` maintained as a running total via subtract-add — never summed from all records
 - `completionPercent` has no upper bound — lower bound is 0.0 only
-- Achievement detection fires only on genuine upward threshold crossings (100%, 200%, 300%, 400%)
+- Achievement detection uses `floor(completionPercent / 100) > currentLevel` — simple, no threshold list, no double-firing
 - The accelerator is internal — no feature outside Garment reads or writes it
 - All constants in `AppConfig` — never hardcoded
 

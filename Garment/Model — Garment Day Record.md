@@ -22,7 +22,7 @@ GarmentDayRecord
 - **id** — client-generated. Immutable.
 - **definitionId** — the commitment this record belongs to.
 - **date** — the calendar date this record covers. Combined with `definitionId` forms the unique key.
-- **accelerationValue** — the accelerator multiplier snapshotted when this record was created (at instance creation for this day). Immutable after creation. Reflects streak momentum going _into_ this day, not during it. Used as the fixed multiplier for all delta recalculations on this day.
+- **accelerationValue** — the accelerator multiplier snapshotted at record creation (when the day's instance opens). Immutable after creation. Reflects streak momentum going _into_ this day, not during it. `GarmentService` reads this value and multiplies it with `livePerformance` to produce `performanceValue` before calling the delta calculator — ensuring all recalculations for this day use the same acceleration regardless of when they fire.
 - **delta** — how much the garment moved on this day. Starts at 0.0 when the record is created. Recalculated on every `PerformanceUpdatedEvent` for this day's instance: `delta = (performanceValue / 100) × dailyFullContribution`, where `performanceValue` already incorporates the acceleration multiplier. Missed days (zero performance) produce zero delta — nothing is ever subtracted from a day's contribution for missed days.
 - **createdAt** — immutable.
 - **updatedAt** — updated on every delta recalculation.
