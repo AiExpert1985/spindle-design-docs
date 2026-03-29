@@ -16,7 +16,7 @@ The garment is built on two truths. First, habits are formed day by day — like
 
 For Do commitments, the garment starts as a small seed and is woven toward completion with each successful day. For Avoid commitments, it starts complete and slowly unravels as the user resists — back toward the spindle. The spindle is where all garments begin. Commitment is the thread, consistency is the weaving, character is the rope.
 
-When a garment completes, the journey does not end. The user keeps performing — fortifying the garment with layers of iron, then gold. These are the marks of a habit so deeply embedded it has become part of who the user is.
+When a garment completes, the journey does not end. The user keeps performing — fortifying the garment with layers of iron, then gold, then diamond. Each full cycle of continued effort adds the next layer. This is intentional: without an upper bound, the garment keeps rewarding consistency indefinitely. A habit deeply embedded deserves to look different from one just starting.
 
 ---
 
@@ -32,7 +32,20 @@ When a commitment is created, Garment creates a profile for it — assigning a g
 
 ---
 
-### Day Records and Running Total
+### Completion Percent and the Band System
+
+`completionPercent` is the running sum of all daily deltas. It has no upper bound — this is a deliberate design decision. Capping at 100% would stop rewarding the user the moment a habit is formed, which is exactly when continued reinforcement matters most.
+
+Each 100% band represents one complete cycle of effort:
+
+- **0–100%** — the habit forming. The garment is being woven.
+- **100–200%** — iron fortify. The habit is complete; the garment gains an iron reinforcement layer.
+- **200–300%** — gold fortify. Mastery deepening.
+- **300–400%** — diamond. A habit so embedded it has become identity.
+
+**Delta calibration.** The base delta (`dailyFullContribution`) is set at 3.0% so that 21 consecutive days of full performance at the accelerator ceiling (1.5×) completes one garment cycle — roughly 4.5% × 21 days ≈ 94.5%. This makes 21 days of near-perfect effort the intended completion time, reflecting the commonly cited habit-formation window. The value is configurable and will be tuned from real data after launch.
+
+The lower bound is 0.0 — a garment cannot go below empty. There is no upper bound.
 
 Every active commitment day has one `GarmentDayRecord` — created when the day's instance opens. Each record carries the date, an acceleration value (snapshotted at creation, immutable), and a delta (starts at zero, recalculates on any performance change for that day).
 
@@ -94,19 +107,14 @@ For Do commitments, the garment grows with consistency. For Avoid commitments, t
 - Garment type and thread colors assigned once at creation — never changed
 - `GarmentDayRecord.accelerationValue` is immutable — snapshotted at day open, never updated
 - `completionPercent` maintained as a running total via subtract-add — never summed from all records
-- `completionPercent` clamped to 0.0–100.0 — clamping is the service's responsibility, not the calculator's
-- Missed days contribute zero delta — they never remove completed threads
-- Achievement detection fires only on genuine threshold crossings
+- `completionPercent` has no upper bound — lower bound is 0.0 only
+- Achievement detection fires only on genuine upward threshold crossings (100%, 200%, 300%, 400%)
 - The accelerator is internal — no feature outside Garment reads or writes it
 - All constants in `AppConfig` — never hardcoded
 
 ---
 
 ## Later Improvements
-
-**Fortify phase.** After completion, the garment enters a fortify phase — iron thread border grows as the user keeps performing. Completing it records a `garmentFortified` achievement. Requires a `GarmentPhase` enum on `GarmentProfile`.
-
-**Gold phase.** After fortify, a gold phase representing mastery. Completing it records `garmentGolded`. Each phase keeps long-running commitments progressively rewarding.
 
 **Decay mechanism.** Actively reduce `completionPercent` after sustained neglect. Deferred pending real usage evidence — the abstracted delta calculator makes it a zero-friction addition.
 

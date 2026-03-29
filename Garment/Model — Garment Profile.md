@@ -25,7 +25,7 @@ GarmentProfile
 - **commitmentType** — Do or Avoid. Determines fill direction. Immutable after creation.
 - **garmentType** — the garment shape assigned at creation. Immutable — part of the commitment's visual identity. See `service_garment_type_resolver`.
 - **threadColors** — hex color list assigned once at creation. Immutable. See `service_thread_color_resolver`.
-- **completionPercent** — running total of all day record deltas. Do: 0.0 (empty) → 100.0 (complete). Avoid: 100.0 (full grip) → 0.0 (unraveled). Updated via subtract-add on every day record recalculation — never derived by summing all records. Clamped to 0.0–100.0.
+- **completionPercent** — accumulated weaving progress. Do: starts at 0.0, increases with each successful day. Avoid: starts at 100.0, decreases toward 0.0. No upper bound — exceeding 100% means the habit is complete and the user has entered fortify cycles (iron at 200%, gold at 300%, diamond at 400%). Lower bound is 0.0. Updated via subtract-add on every day record recalculation.
 - **createdAt** — immutable.
 - **updatedAt** — updated on every write.
 

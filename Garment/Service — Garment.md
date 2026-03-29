@@ -53,7 +53,7 @@ Idempotent — profile creation exits silently if profile already exists. Day re
 5. newDelta = GarmentDeltaCalculator.calculate(performanceValue, commitmentType)
 6. record.delta = newDelta
 7. Save updated day record
-8. profile.completionPercent = clamp(profile.completionPercent - oldDelta + newDelta, 0.0, 100.0)
+8. profile.completionPercent = max(0.0, profile.completionPercent - oldDelta + newDelta)
 9. Save updated profile
 10. Publish GarmentUpdatedEvent
 11. _detectAchievements(profile, profile.completionPercent + oldDelta - newDelta)
@@ -77,15 +77,19 @@ return accelerationValue * livePerformance
 
 ### `_detectAchievements(profile, previousPercent)`
 
-Checks all garment achievement thresholds. Called after every garment update with the previous `completionPercent` before this update. Fires only on genuine threshold crossings.
+Checks all garment achievement thresholds. Called after every garment update with the previous `completionPercent`. Fires only on genuine upward threshold crossings.
 
 ```
-isComplete = profile.completionPercent >= 100.0 (Do) or <= 0.0 (Avoid)
-wasComplete = previousPercent >= 100.0 (Do) or <= 0.0 (Avoid)
+// Each band crossing fires exactly once — on the upward transition only
+thresholds = [100.0, 200.0, 300.0, 400.0]
+subtypes   = [garmentCompleted, garmentFortified, garmentGolded, garmentDiamond]
 
-if isComplete and not wasComplete:
-  _addAchievement(AchievementSubtype.garmentCompleted, profile)
+for each (threshold, subtype) in zip(thresholds, subtypes):
+  if previousPercent < threshold and profile.completionPercent >= threshold:
+    _addAchievement(subtype, profile)
 ```
+
+Adding a new phase means adding one threshold and one subtype — nothing else changes.
 
 ### `_addAchievement(subtype, profile)`
 
@@ -126,7 +130,8 @@ Published after every garment update. Consumed by the presentation layer for liv
 - Reads definition once at garment creation — for `GarmentTypeResolver` input only
 - All resolver/calculator abstractions are injected — never instantiated inside the service
 - `accelerationValue` used for delta calculation always comes from the day record snapshot — never from the live accelerator
-- `_detectAchievements` fires only on genuine threshold crossings — idempotent by design
+- `completionPercent` has no upper bound — lower bound is 0.0 only
+- `_detectAchievements` fires only on genuine upward threshold crossings — idempotent by design
 - `GarmentRenderer` used only by the garment display component — never called here
 
 ---

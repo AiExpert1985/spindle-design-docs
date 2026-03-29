@@ -70,11 +70,11 @@ Direction is reversed — a successful avoid day moves `completionPercent` towar
 All constants in `AppConfig` — never hardcoded.
 
 ```
-dailyFullContribution: 1.5
+dailyFullContribution: 3.0
 dailyBreachPenalty:    2.0
 ```
 
-Starting values. Will be tuned from real user data after launch.
+`dailyFullContribution` is set at 3.0% so that 21 consecutive days of full performance at the accelerator ceiling (1.5×) completes one garment cycle — roughly 4.5% per day × 21 days ≈ 94.5%, close enough that a near-perfect 21-day streak completes the garment. This makes one garment cycle a meaningful but achievable milestone. Will be tuned from real user data after launch.
 
 ---
 
@@ -82,5 +82,5 @@ Starting values. Will be tuned from real user data after launch.
 
 - Pure function — no storage reads, no service calls, no side effects
 - All inputs passed in by `GarmentService` — never fetched internally
-- Returns raw delta — `GarmentService` clamps the result to 0.0–100.0
+- Returns raw delta — caller applies lower bound of 0.0, no upper bound
 - Decay is deferred — see `feature_garment` Later Improvements

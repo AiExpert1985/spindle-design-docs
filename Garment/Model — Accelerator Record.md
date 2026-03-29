@@ -10,10 +10,8 @@
 
 ```
 AcceleratorRecord
-  definitionId: String     // the commitment this accelerator belongs to
-                           // also the document ID in storage
-  multiplierValue: double  // current multiplier — starts at 1.0
-                           // bounded by AppConfig.acceleratorFloor and acceleratorCeiling
+  definitionId: String     
+  multiplierValue: double
   createdAt: DateTime
   updatedAt: DateTime
 ```
