@@ -2,7 +2,7 @@
 
 ---
 
-**Purpose:** evaluates weekly performance and awards cups. When a cup is earned, records the achievement directly via `AchievementService.addAchievement()`. An independent feature — sits above Achievements in the chain.
+**Purpose:** evaluates weekly performance and awards cups. Records the achievement via `AchievementService.addAchievement()` on every cup earned, including backfilled cups.
 
 ---
 
@@ -70,11 +70,11 @@ diamond → AchievementSubtype.diamondCup
 
 ## Read Functions
 
-### `getAllCups(from, to)` → List<WeeklyCup>
+### `getAllCups(from, to)` → List< WeeklyCup >
 
 Ordered by weekStart descending.
 
-### `getCupsSince(from)` → List<WeeklyCup>
+### `getCupsSince(from)` → List< WeeklyCup >
 
 Used internally and by `AchievementService` for reads beyond what `AchievementRecord` carries.
 
@@ -82,9 +82,7 @@ Used internally and by `AchievementService` for reads beyond what `AchievementRe
 
 ## Rules
 
-- Cups based on raw `getOverallWeekScore()` — never accelerator-modified
-- Idempotent — one cup per week maximum, checked before write
-- Backfilled cups record achievements identically to live cups — no celebration notification only
+- Idempotent — `cupExistsForWeek()` checked before every write
 - Thresholds are percentage values in `AppConfig`
 
 ---
