@@ -1,8 +1,8 @@
-**File Name**: service_garment_delta_calculator **Feature**: Garment **Phase**: 3 **Created**: 24-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: service_garment_delta_calculator **Feature**: Garment **Phase**: 3 **Created**: 24-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** calculates how much the garment moves on a given day based on the commitment's performance result. Pure function — given current state and today's result, returns the delta. No side effects, no storage.
+**Purpose:** calculates how much the garment moves on a given day based on the day's performance value. Pure function — no side effects, no storage, no service calls.
 
 Abstract interface — the formula inside can be replaced entirely without touching `GarmentService` or any other caller.
 
@@ -12,7 +12,7 @@ Abstract interface — the formula inside can be replaced entirely without touch
 
 ```
 GarmentDeltaCalculator (abstract)
-  → DefaultGarmentDeltaCalculator    // rule-based implementation
+  → DefaultGarmentDeltaCalculator    // proportional contribution implementation
   → (future: science-backed, AI-tuned, or user-configured)
 ```
 
@@ -22,76 +22,44 @@ GarmentDeltaCalculator (abstract)
 
 ```
 calculate(
-  completionPercent: double,
-  consecutiveFailDays: int,
-  performanceValue: double,    // raw or accelerator-modified — caller decides
-  isSuccess: bool,             // from PerformanceService.isWindowSuccess()
+  performanceValue: double,    // already accelerator-modified by caller
   commitmentType: CommitmentType,
-) → GarmentDelta
+) → double                     // raw delta — caller clamps to 0.0–100.0
 ```
 
-```
-GarmentDelta
-  delta: double                // net change to apply to completionPercent
-  updatedConsecutiveFailDays: int
-```
-
-All inputs are passed in — no reads from storage, no service calls. `isSuccess` is evaluated by the caller (`GarmentService`) via `PerformanceService.isWindowSuccess()` before calling this function — the calculator never reads `AppConfig.successThreshold` directly.
+All inputs passed in — no reads from storage, no service calls. The caller (`GarmentService`) applies the acceleration before passing `performanceValue` in.
 
 ---
 
 ## Default Implementation — Formula
 
-### Daily Contribution
+### Do Commitment
 
-The base movement for a kept day.
+```
+delta = (performanceValue / 100) × dailyFullContribution
+```
 
-**Do commitment:**
+- Full kept day (100% performance) → `+dailyFullContribution` (default: 1.5%)
+- Partial day → proportional
+- Missed day (0%) → 0.0 — nothing added, nothing removed
 
-- Full kept day (100%) → `+dailyFullContribution` (default: 1.5%)
-- Partial day → proportional: `livePerformance / 100 × dailyFullContribution`
-- Missed day (0%) → 0 contribution, does not trigger decay alone
+### Avoid Commitment
 
-**Avoid commitment:**
+```
+Successful avoided day  →  -(performanceValue / 100) × dailyFullContribution
+Breach day              →  +(breachPenalty)    // moves back toward 100%
+```
 
-- Successful avoided day → `-dailyFullContribution` (moves toward 0%)
-- Breach day → `+dailyBreachPenalty` (default: 2.0%, moves back toward 100%)
-
----
-
-### Decay
-
-Applies when consecutive failures exceed the grace threshold.
-
-- Condition: `consecutiveFailDays >= decayThreshold` (default: 2)
-- Amount: `-decayAmount` per day (default: 1.0%)
-- Direction reversed for Avoid commitments
-- Any successful day resets `consecutiveFailDays` to 0
-
-The grace threshold means one or two bad days have no decay penalty — a pattern of failure is required. This reflects real behavioral science: occasional misses are normal, sustained failure is the signal.
+Direction is reversed — a successful avoid day moves `completionPercent` toward 0.0 (unraveled).
 
 ---
 
-### Streak Bonus
-
-Applies when a streak is active.
-
-- Condition: `currentStreak >= streakBonusThreshold` (default: 3 days)
-- Effect: daily contribution multiplied by `streakBonusMultiplier` (default: 1.2)
-- Direction: same as daily contribution — Do habits weave faster, Avoid habits unweave faster
-
----
-
-### Avoid Direction
-
-All calculations work identically for both commitment types — the direction is reversed for Avoid.
+### Avoid Direction Table
 
 |Event|Do habit|Avoid habit|
 |---|---|---|
 |Successful day|percent increases|percent decreases|
-|Breach / miss|percent unchanged (decay may apply)|percent increases|
-|Decay active|percent decreases|percent increases|
-|Streak bonus|increases faster|decreases faster|
+|Missed / breach|no change (0 delta)|percent increases|
 |Starting value|0.0%|100.0%|
 |Goal|reach 100.0%|reach 0.0%|
 
@@ -99,18 +67,14 @@ All calculations work identically for both commitment types — the direction is
 
 ## Configurable Constants
 
-All constants are in `AppConfig` — never hardcoded.
+All constants in `AppConfig` — never hardcoded.
 
 ```
 dailyFullContribution: 1.5
-dailyBreachPenalty: 2.0
-decayThreshold: 2
-decayAmount: 1.0
-streakBonusThreshold: 3
-streakBonusMultiplier: 1.2
+dailyBreachPenalty:    2.0
 ```
 
-These are starting values. They will be tuned based on real user data after launch. The abstraction exists precisely so tuning requires changing one file, not touching any formula.
+Starting values. Will be tuned from real user data after launch.
 
 ---
 
@@ -118,5 +82,5 @@ These are starting values. They will be tuned based on real user data after laun
 
 - Pure function — no storage reads, no service calls, no side effects
 - All inputs passed in by `GarmentService` — never fetched internally
-- Returns `GarmentDelta` — `GarmentService` applies it and clamps the result to 0.0–100.0
-- Clamping is the service's responsibility — the calculator returns the raw delta
+- Returns raw delta — `GarmentService` clamps the result to 0.0–100.0
+- Decay is deferred — see `feature_garment` Later Improvements

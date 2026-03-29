@@ -2,8 +2,6 @@
 
 ---
 
-# Feature — Performance
-
 Performance is the score authority. It calculates how well the user is doing against their commitments, maintains a live score on every open instance, and answers any question about performance across any period. Nothing above it calculates scores independently.
 
 ---

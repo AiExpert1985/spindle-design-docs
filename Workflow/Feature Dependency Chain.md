@@ -242,7 +242,7 @@ No public events published. Streak changes are internal. Achievement detection (
 
 **Public functions:** `watchGarmentProfile()`, `getWeeklyProgress()`, `getLiveWeekDelta()`
 
-**Subscribes to:** `InstanceCreatedEvent` (Commitment), `PerformanceUpdatedEvent` (Performance), `InstancePermanentlyDeletedEvent` (Commitment), `WeekEndedEvent` (TemporalHelper)
+**Subscribes to:** `InstanceCreatedEvent`, `InstancePermanentlyDeletedEvent` (CommitmentIdentityService), `PerformanceUpdatedEvent` (Performance), `WeekEndedEvent` (TemporalHelper)
 
 **Calls directly:** `CommitmentService.getDefinition()`, `StreakService.getStreakRecord()` (via AcceleratorService), `AchievementService.addAchievement()`
 
