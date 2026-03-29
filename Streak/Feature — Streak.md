@@ -2,8 +2,6 @@
 
 ---
 
-# Feature — Streak
-
 Streak tracks consecutive kept and missed windows for each commitment using a single signed integer. It is the momentum signal of the app — consumed by features that need to know the direction and strength of a user's recent pattern.
 
 ---
