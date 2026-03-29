@@ -21,7 +21,7 @@ class WeeklyCup {
 enum CupLevel { bronze, silver, gold, diamond }
 ```
 
-- **id** — client-generated UUID. Immutable.
+- **id** — `year_weeknumber` format (e.g. `2026_W13`). Natural unique key per week per user. Used as the Firestore document ID — upsert by this ID is inherently idempotent. Immutable.
 - **weekStart** — Monday 00:00:00 of the week this cup covers. Identifies which week.
 - **cupLevel** — the tier earned. Determined by `weeklyScore` vs `AppConfig` thresholds.
 - **weeklyScore** — raw percentage score stored for auditability and detail display.

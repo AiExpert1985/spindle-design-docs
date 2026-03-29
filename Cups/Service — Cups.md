@@ -2,33 +2,41 @@
 
 ---
 
-**Purpose:** evaluates weekly performance and awards cups. Records the achievement via `AchievementService.addAchievement()` on every cup earned, including backfilled cups.
+**Purpose:** evaluates weekly performance and awards cups. Records the achievement via `AchievementService.addAchievement()` on every cup earned.
 
 ---
 
 ## Events Subscribed
 
-### `TemporalHelperService.onWeekEnded` → `_onWeekEnded(event)`
+### `WeekEndedEvent` → `_onWeekEnded(event)`
 
 ```
 score = PerformanceService.getOverallWeekScore(event.weekStart)
 level = _determineCupLevel(score)
 if level == null: return   // below minimum threshold
 
-if CupRepository.cupExistsForWeek(event.weekStart): return   // idempotent
-
-cup = WeeklyCup(weekStart: event.weekStart, cupLevel: level, weeklyScore: score)
-CupRepository.saveCup(cup)
+cup = WeeklyCup(
+  id: _weekId(event.weekStart),   // year_weeknumber — natural unique key
+  weekStart: event.weekStart,
+  cupLevel: level,
+  weeklyScore: score,
+)
+CupRepository.saveCup(cup)   // upsert by id — idempotent by design
 _addAchievement(cup)
 ```
-
-### `backfillMissingCups()` — on app startup
-
-Looks back `AppConfig.cupBackfillWeeks` (default: 8) weeks. For each past week with no cup record, fetches score and awards a cup including its achievement record. No celebration notification is triggered for backfilled cups. Backfill is bounded to satisfy the windowed fetch rule.
 
 ---
 
 ## Internal Functions
+
+### `_weekId(weekStart)` → String
+
+```
+return "${weekStart.year}_W${weekNumber(weekStart)}"
+// e.g. "2026_W13"
+```
+
+The document ID is the natural unique key per week per user. Upsert by this ID means no existence check needed — writing the same week twice produces the same record.
 
 ### `_determineCupLevel(score)` → CupLevel?
 
@@ -44,14 +52,12 @@ return null
 
 ### `_addAchievement(cup)`
 
-Private. Constructs and submits an `AchievementRecord`.
-
 ```
 AchievementService.addAchievement(AchievementRecord(
   type: AchievementType.cup,
   subtype: _cupSubtype(cup.cupLevel),
   sourceId: cup.id,
-  definitionId: null,   // cups are cross-commitment
+  definitionId: null,
   createdAt: now,
   updatedAt: now,
 ))
@@ -70,27 +76,23 @@ diamond → AchievementSubtype.diamondCup
 
 ## Read Functions
 
-### `getAllCups(from, to)` → List< WeeklyCup >
+### `getAllCups(from, to, definitionId?)` → List<WeeklyCup>
 
-Ordered by weekStart descending.
-
-### `getCupsSince(from)` → List< WeeklyCup >
-
-Used internally and by `AchievementService` for reads beyond what `AchievementRecord` carries.
+Returns cups within the date range. `definitionId` is always null for cups — parameter kept for interface consistency with the rest of the system. Ordered by `weekStart` descending.
 
 ---
 
 ## Rules
 
-- Idempotent — `cupExistsForWeek()` checked before every write
+- Idempotent by document ID — `year_weeknumber` as the unique key, upsert replaces any duplicate
 - Thresholds are percentage values in `AppConfig`
 
 ---
 
 ## Dependencies
 
-- `TemporalHelperService` — subscribes to `onWeekEnded`
+- `TemporalHelperService` — subscribes to `WeekEndedEvent`
 - `PerformanceService.getOverallWeekScore()` — raw weekly score
 - `AchievementService.addAchievement()` — records the achievement
 - `CupRepository` — reads and writes `WeeklyCup`
-- `AppConfig` — cup threshold constants, `cupBackfillWeeks`
+- `AppConfig` — cup threshold constants

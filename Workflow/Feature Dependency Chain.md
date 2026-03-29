@@ -228,7 +228,7 @@ No public events published. Streak changes are internal. Achievement detection (
 
 ### Cups
 
-**Public functions:** `getAllCups(from, to)`, `getCupsSince(from)`
+**Public functions:** `getAllCups(from, to, definitionId?)`
 
 **Subscribes to:** `WeekEndedEvent` (TemporalHelper)
 

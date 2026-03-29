@@ -10,25 +10,27 @@
 
 |Operation|Input|Output|
 |---|---|---|
-|`saveCup(cup)`|WeeklyCup|—|
-|`cupExistsForWeek(weekStart)`|weekStart|bool — idempotency check|
-|`getAllCups()`|—|List ordered by weekStart desc|
-|`getCupsSince(from)`|from: DateTime|List since date|
+|`saveCup(cup)`|WeeklyCup|— upsert by `id`|
+|`getAllCups(from, to)`|date range|List ordered by weekStart desc|
+
+`saveCup` upserts by document ID (`year_weeknumber`). No existence check needed — writing the same week twice produces the same record.
+
+`getAllCups` uses a single range filter on `weekStart` — compatible with Firestore's one-range-filter constraint.
 
 ---
 
 ## Firestore Path
 
 ```
-/users/{userId}/weeklyCups/{id}
+/users/{userId}/weeklyCups/{year_weeknumber}
 ```
 
-Covered by existing security rule.
+Document ID is the natural unique key. Covered by existing security rule.
 
 ---
 
 ## Rules
 
 - Called only by `CupService`
-- Append-only — never edited after creation
-- `cupExistsForWeek` always called before `saveCup`
+- Append-only in practice — upsert of the same week produces identical data
+- No existence check before write — idempotency is guaranteed by document ID

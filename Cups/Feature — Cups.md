@@ -28,9 +28,7 @@ When a week ends, `CupService` reads the overall weekly performance score. If it
 
 **Four levels — bronze, silver, gold, diamond** — with percentage thresholds configurable in `AppConfig` (defaults: 60%, 75%, 85%, 95%). The level reflects the quality of the week honestly and without inflation.
 
-**One cup per week maximum.** The service checks before writing — if a cup already exists for that week, it exits silently. This makes the handler safe to call multiple times (e.g. on app startup catch-up) without risk of duplicates.
-
-**Backfill on startup.** When the app opens, `CupService` looks back a configurable number of weeks and silently fills any missing cup records. This handles the case where the app was closed when a week ended. Backfilled cups write achievements identically to live cups — the achievement record is the honest history of what the user earned regardless of when it was discovered. The only difference is that no celebration notification fires for backfilled cups.
+**One cup per week maximum.** Each cup's document ID is `year_weeknumber` (e.g. `2026_W13`) — the natural unique key for a week. Writing the same week twice upserts to the same document, producing identical data. No existence check needed — idempotency is structural.
 
 **Cups are cross-commitment.** `definitionId` is null on the achievement record — a cup belongs to the week, not to any specific commitment. This is what makes cups distinct from streak achievements, which are per-commitment.
 
@@ -46,9 +44,8 @@ Cups publishes no events. It consumes `WeekEndedEvent` from TemporalHelper and w
 
 ## Rules
 
-- One cup per week — idempotency checked before every write
+- One cup per week — document ID is `year_weeknumber`, upsert is inherently idempotent
 - Raw performance score only — accelerator never applied to cup evaluation
-- Backfilled cups record achievements identically to live cups — no celebration notification only
 - `definitionId` is null on cup achievements — cups are cross-commitment
 - Thresholds are configurable percentage values in `AppConfig`
 - Below minimum threshold (default: 60%) — no cup, no record, no noise
