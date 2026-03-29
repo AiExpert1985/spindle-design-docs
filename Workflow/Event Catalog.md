@@ -114,8 +114,6 @@ One event covers all three write operations. `value` is null on deleted.
 
 No `instanceId` — the correct instance is identified at read time from `definitionId` + `loggedAt` date.
 
-All other downstream reactions (Rewards, Garment) watch `PerformanceUpdatedEvent` — not `ActivityEvent` directly.
-
 ---
 
 ## Performance Events

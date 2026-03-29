@@ -40,7 +40,7 @@ Core formula. Never called by other features.
 
 ### `getPerformanceForPeriod(from, to, definitionId?) → double`
 
-Fetches instances via `CommitmentIdentityService.getInstances(from, to, definitionId?)`. Returns the straight average of `livePerformance` across all returned instances. No cap applied — raw values averaged as-is.
+Fetches instances via `CommitmentIdentityService.getInstances(from, to, definitionId?)`. Returns the straight average of `livePerformance` across all returned instances. Returns 0.0 if no instances exist for the period. No cap applied — raw values averaged as-is.
 
 ### `getDayScore(date) → double`
 

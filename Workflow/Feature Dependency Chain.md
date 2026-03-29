@@ -198,7 +198,7 @@ No events published. No public read functions — internal only. See `service_co
 
 **Public functions:** `getPerformanceForPeriod()`, `getDayScore()`, `getCommitmentWeekScore()`, `getOverallWeekScore()`, `isWindowSuccess(livePerformance)`
 
-**Subscribes to:** `InstanceCreatedEvent`, `InstanceUpdatedEvent` (Commitment), `ActivityEvent` (Activity)
+**Subscribes to:** `InstanceCreatedEvent` (Commitment), `ActivityEvent` (Activity)
 
 **Calls directly:** `CommitmentIdentityService.updateLivePerformance()`, `CommitmentIdentityService.getInstanceForCommitmentOnDate()`, `CommitmentIdentityService.getInstances()`, `ActivityService.getTotalLoggedForCommitmentOnDate()`
 
