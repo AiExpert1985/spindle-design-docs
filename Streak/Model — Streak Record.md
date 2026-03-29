@@ -1,35 +1,8 @@
-**File Name**: model_streak_record **Feature**: Streak **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: model_streak_record **Feature**: Streak **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** stores the current streak state for one commitment. One record per commitment. No history — the current signed value and the all-time best are all that is needed.
-
----
-
-## What a Streak Is
-
-A streak is a single signed integer per commitment. Positive means consecutive kept windows. Negative means consecutive missed windows. Zero means neutral — either the commitment just started, or a streak just broke.
-
-**Positive streak** — the user has kept this commitment for consecutive windows. The longer the streak, the stronger the momentum signal.
-
-**Negative streak** — the user has missed this commitment for consecutive windows. The longer the negative streak, the stronger the struggling signal.
-
-**Zero** — neutral state. A positive streak that breaks goes to zero first before going negative on the next miss. This is intentional — one missed day after a long kept streak is a neutral moment, not immediately a bad streak. The pattern of missing is what matters.
-
----
-
-## Transition Rules
-
-```
-Current positive, window kept   → increment by 1   (e.g. +5 → +6)
-Current positive, window missed → reset to 0        (e.g. +5 → 0)
-Current zero,     window kept   → increment to +1
-Current zero,     window missed → decrement to -1
-Current negative, window kept   → reset to 0        (e.g. -3 → 0)
-Current negative, window missed → decrement by 1    (e.g. -3 → -4)
-```
-
-Frozen windows are neutral — neither increment nor decrement. The streak is preserved through a freeze period unchanged.
+**Purpose:** stores the current streak state for one commitment. One record per commitment. Holds the signed current streak and the all-time best positive value.
 
 ---
 
