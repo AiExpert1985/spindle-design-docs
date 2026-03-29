@@ -14,9 +14,9 @@ Numbers don't make effort feel real. A streak count and a percentage are accurat
 
 The garment is built on two truths. First, habits are formed day by day — like weaving, each kept day adds a thread. Skip a day and you add nothing. Keep going and something real takes shape. Second, a visual garment communicates that progress in a way no percentage can — its size, its fill, its completeness tells the story at a glance.
 
-For Do commitments, the garment starts as a small seed and is woven toward completion with each successful day. For Avoid commitments, it starts complete and slowly unravels as the user resists — back toward the spindle. The spindle is where all garments begin. Commitment is the thread, consistency is the weaving, character is the rope.
+For Do commitments, the garment starts as a small seed and is woven toward completion with each successful day. For Avoid commitments, the garment is shown as visually complete from the start — representing the habit's current grip — and unravels as the user resists, back toward the bare spindle. The spindle is where all garments end for Avoid. Commitment is the thread, consistency is the weaving, character is the rope.
 
-When a garment completes, the journey does not end. The user keeps performing — fortifying the garment with layers of iron, then gold, then diamond. Each full cycle of continued effort adds the next layer. This is intentional: without an upper bound, the garment keeps rewarding consistency indefinitely. A habit deeply embedded deserves to look different from one just starting.
+When a garment completes, the journey does not end. The user keeps performing — fortifying the garment with layers of iron, then gold, then diamond. Each full cycle of continued effort adds the next layer. Without an upper bound, the garment keeps rewarding consistency indefinitely. A habit deeply embedded deserves to look different from one just starting.
 
 ---
 
@@ -32,20 +32,7 @@ When a commitment is created, Garment creates a profile for it — assigning a g
 
 ---
 
-### Completion Percent and the Band System
-
-`completionPercent` is the running sum of all daily deltas. It has no upper bound — this is a deliberate design decision. Capping at 100% would stop rewarding the user the moment a habit is formed, which is exactly when continued reinforcement matters most.
-
-Each 100% band represents one complete cycle of effort:
-
-- **0–100%** — the habit forming. The garment is being woven.
-- **100–200%** — iron fortify. The habit is complete; the garment gains an iron reinforcement layer.
-- **200–300%** — gold fortify. Mastery deepening.
-- **300–400%** — diamond. A habit so embedded it has become identity.
-
-**Delta calibration.** The base delta (`dailyFullContribution`) is set at 3.0% so that 21 consecutive days of full performance at the accelerator ceiling (1.5×) completes one garment cycle — roughly 4.5% × 21 days ≈ 94.5%. This makes 21 days of near-perfect effort the intended completion time, reflecting the commonly cited habit-formation window. The value is configurable and will be tuned from real data after launch.
-
-The lower bound is 0.0 — a garment cannot go below empty. There is no upper bound.
+### Day Records and Running Total
 
 Every active commitment day has one `GarmentDayRecord` — created when the day's instance opens. Each record carries the date, an acceleration value (snapshotted at creation, immutable), and a delta (starts at zero, recalculates on any performance change for that day).
 
@@ -71,19 +58,28 @@ The accelerator is optional. `AppConfig.garmentUsesAccelerator` is a master swit
 
 ---
 
-### Delta Calculation
+### Delta, Completion, and the Band System
 
-Given the snapshotted acceleration and the day's performance, the delta calculator returns how much the garment moves. The contribution is proportional to the accelerated performance — a full kept day at 1.0 adds the maximum contribution, a partial day contributes proportionally, a missed day contributes zero.
+Given the snapshotted acceleration and the day's performance, the delta calculator returns how much the garment moves. The delta is always positive and identical for Do and Avoid — the formula has no knowledge of commitment type. The contribution is proportional to the accelerated performance — a full kept day at 1.0 adds the maximum contribution, a partial day contributes proportionally, a missed day contributes zero. Missed days slow future progress through deceleration — the accelerator drops, making subsequent good days contribute less. What was accumulated stays accumulated.
 
-Missed days slow future progress through deceleration — the accelerator drops, making subsequent good days contribute less. What was woven stays woven. Decay — actively reducing `completionPercent` for missed days — is deferred: it conflicts with the app's honesty principle (past effort happened and should not be erased), risks frustrating users when they see progress visibly shrink, and adds implementation complexity. It may be revisited if real usage shows deceleration alone is insufficient.
+**Delta calibration.** The base delta is set at 3.0% so that 21 consecutive days of full performance at the accelerator ceiling (1.5×) completes one garment cycle — roughly 4.5% × 21 days ≈ 94.5%. This makes near-perfect 21-day effort the intended completion time, reflecting the commonly cited habit-formation window. Configurable and will be tuned from real data after launch.
 
-All constants are configurable and will be tuned from real data. The formula is abstracted — the entire calculation strategy can be replaced without touching `GarmentService`.
+**Completion percent is unbounded above.** Capping at 100% would stop rewarding the user the moment a habit is formed — exactly when continued reinforcement matters most. Each 100% band represents one complete cycle:
+
+- **0–100%** — the habit forming. The garment is being woven.
+- **100–200%** — iron fortify. The habit is complete; the garment gains an iron layer.
+- **200–300%** — gold. Mastery deepening.
+- **300–400%** — diamond. A habit so embedded it has become identity.
+
+The lower bound is 0.0 — a garment cannot go below empty. Decay — actively reducing `completionPercent` for missed days — is deferred: it conflicts with the app's honesty principle, risks frustrating users when they see progress shrink, and adds complexity. It may be revisited if real usage shows deceleration alone is insufficient.
+
+All constants are configurable. The formula is abstracted — the entire calculation strategy can be replaced without touching `GarmentService`.
 
 ---
 
 ### Achievement Detection
 
-After every update, the service checks whether a meaningful threshold was crossed — reaching 50%, completing the garment, completing the fortify phase, completing the gold phase. Detection fires only on genuine crossings. Achievement records are written to the Achievements feature below Garment.
+After every update, the service checks whether a band threshold was crossed — 100% (garment complete), 200% (iron fortify complete), 300% (gold complete), 400% (diamond complete). Detection fires only on genuine upward crossings. Achievement records are written to the Achievements feature below Garment.
 
 ---
 
@@ -91,7 +87,21 @@ After every update, the service checks whether a meaningful threshold was crosse
 
 Each garment has a type reflecting the commitment's shape — simpler commitments get simpler garments, complex ones get more elaborate. Assigned once at creation, immutable. Thread colors are assigned once using seeded random selection from a curated vivid palette — the seed is the commitment's ID, so colors are always deterministic and stable across reinstalls. Both are part of the commitment's permanent visual identity.
 
-For Do commitments, the garment grows with consistency. For Avoid commitments, the direction reverses — it begins complete and unravels as the user resists. All calculations work identically — only the direction flips.
+---
+
+### The Renderer — Where Do and Avoid Diverge
+
+Everything below the renderer is commitment-type-agnostic. The delta formula, the day record, the accelerator, the running total, the band thresholds — all identical for Do and Avoid. `commitmentType` never enters any calculation.
+
+The renderer is the single place where commitment type affects behavior. It receives `completionPercent` and `commitmentType` and decides what to draw:
+
+**Do commitment** — the garment starts empty and grows. 0% is a bare seed. As `completionPercent` rises, threads are woven. At 100% the garment is complete. Beyond 100%, iron borders appear, then gold, then diamond — each band a visible layer of reinforcement on the completed form.
+
+**Avoid commitment** — the garment starts as a full form (the habit's current grip, visually complete). As `completionPercent` rises, threads unravel from the form back toward the spindle. At 100% the spindle is bare — the habit is broken. Beyond 100%, the spindle itself gains adornment — an iron lock, then gold, then diamond — marking the habit as sealed away.
+
+Same number. Opposite visual story. All complexity lives in one place.
+
+The renderer is abstracted — `GarmentRenderer` is an interface with `SimpleThreadRenderer` as the Phase 1 implementation. The rendering strategy can be replaced without touching any calculation code.
 
 ---
 

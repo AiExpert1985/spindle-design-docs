@@ -2,7 +2,7 @@
 
 ---
 
-**Purpose:** owns the complete lifecycle of garment profiles and day records. Initializes garments when commitments are created, updates them on performance changes, detects garment achievement moments, and exposes read functions to the presentation layer. The single writer of `GarmentProfile`, `GarmentDayRecord`, and `CommitmentWeeklyProgress`.
+**Purpose:** owns the complete lifecycle of garment profiles and day records. Initializes garments when commitments are created, updates them on performance changes, detects garment achievement moments, and exposes read functions to the presentation layer. The single writer of `GarmentProfile` and `GarmentDayRecord`.
 
 ---
 
@@ -34,7 +34,7 @@ On a brand new commitment (no existing `GarmentProfile`):
 
 1. `GarmentTypeResolver.resolve(definition)` → `garmentType`
 2. `ThreadColorResolver.resolve(definitionId)` → `threadColors`
-3. Create `GarmentProfile` — Do: `completionPercent: 0.0`, Avoid: `completionPercent: 100.0`
+3. Create `GarmentProfile` — Do and Avoid both: `completionPercent: 0.0`
 
 On every instance creation (new and recreated):
 
@@ -50,7 +50,7 @@ Idempotent — profile creation exits silently if profile already exists. Day re
 2. if record == null: exit  // no record means no active instance — frozen, completed, or deleted
 3. oldDelta = record.delta
 4. performanceValue = _getPerformance(event.definitionId, event.livePerformance, record.accelerationValue)
-5. newDelta = GarmentDeltaCalculator.calculate(performanceValue, commitmentType)
+5. newDelta = GarmentDeltaCalculator.calculate(performanceValue)
 6. record.delta = newDelta
 7. Save updated day record
 8. profile.completionPercent = max(0.0, profile.completionPercent - oldDelta + newDelta)

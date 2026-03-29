@@ -2,7 +2,7 @@
 
 ---
 
-**Purpose:** calculates how much the garment moves on a given day based on the day's performance value. Pure function — no side effects, no storage, no service calls.
+**Purpose:** calculates how much the garment moves on a given day based on the day's performance value. Pure function — no side effects, no storage, no service calls. Commitment type has no effect on the calculation — the delta is always positive and proportional to performance. Visual interpretation of the delta is the renderer's responsibility.
 
 Abstract interface — the formula inside can be replaced entirely without touching `GarmentService` or any other caller.
 
@@ -23,45 +23,24 @@ GarmentDeltaCalculator (abstract)
 ```
 calculate(
   performanceValue: double,    // already accelerator-modified by caller
-  commitmentType: CommitmentType,
-) → double                     // raw delta — caller clamps to 0.0–100.0
+) → double                     // raw delta — always positive. Caller applies lower bound of 0.0, no upper bound.
 ```
 
-All inputs passed in — no reads from storage, no service calls. The caller (`GarmentService`) applies the acceleration before passing `performanceValue` in.
+`commitmentType` is not a parameter — the delta formula is identical for Do and Avoid. All inputs passed in — no reads from storage, no service calls.
 
 ---
 
-## Default Implementation — Formula
-
-### Do Commitment
+## Formula
 
 ```
 delta = (performanceValue / 100) × dailyFullContribution
 ```
 
-- Full kept day (100% performance) → `+dailyFullContribution` (default: 1.5%)
+- Full kept day (100% performance) → `+dailyFullContribution` (3.0%)
 - Partial day → proportional
 - Missed day (0%) → 0.0 — nothing added, nothing removed
 
-### Avoid Commitment
-
-```
-Successful avoided day  →  -(performanceValue / 100) × dailyFullContribution
-Breach day              →  +(breachPenalty)    // moves back toward 100%
-```
-
-Direction is reversed — a successful avoid day moves `completionPercent` toward 0.0 (unraveled).
-
----
-
-### Avoid Direction Table
-
-|Event|Do habit|Avoid habit|
-|---|---|---|
-|Successful day|percent increases|percent decreases|
-|Missed / breach|no change (0 delta)|percent increases|
-|Starting value|0.0%|100.0%|
-|Goal|reach 100.0%|reach 0.0%|
+The same formula applies to both Do and Avoid commitments. `completionPercent` always starts at 0.0 and grows in one direction. The renderer receives `completionPercent` and `commitmentType` and decides what that number means visually — a growing garment for Do, a dissolving garment for Avoid.
 
 ---
 
@@ -71,16 +50,15 @@ All constants in `AppConfig` — never hardcoded.
 
 ```
 dailyFullContribution: 3.0
-dailyBreachPenalty:    2.0
 ```
 
-`dailyFullContribution` is set at 3.0% so that 21 consecutive days of full performance at the accelerator ceiling (1.5×) completes one garment cycle — roughly 4.5% per day × 21 days ≈ 94.5%, close enough that a near-perfect 21-day streak completes the garment. This makes one garment cycle a meaningful but achievable milestone. Will be tuned from real user data after launch.
+Set at 3.0% so that 21 consecutive days of full performance at the accelerator ceiling (1.5×) completes one garment cycle — roughly 4.5% × 21 days ≈ 94.5%. This makes near-perfect 21-day effort the intended completion time, reflecting the commonly cited habit-formation window. Will be tuned from real user data after launch.
 
 ---
 
 ## Rules
 
 - Pure function — no storage reads, no service calls, no side effects
-- All inputs passed in by `GarmentService` — never fetched internally
-- Returns raw delta — caller applies lower bound of 0.0, no upper bound
+- `commitmentType` never passed in — the calculator has no knowledge of commitment type
+- Returns raw positive delta — caller applies lower bound of 0.0, no upper bound
 - Decay is deferred — see `feature_garment` Later Improvements
