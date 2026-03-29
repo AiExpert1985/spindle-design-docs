@@ -2,6 +2,8 @@
 
 ---
 
+# Feature — Garment
+
 Garment gives each commitment a living visual form — a small garment that grows thread by thread with every kept day, or dissolves as a bad habit is broken. It makes the slow, invisible work of habit formation visible and personal.
 
 ---
@@ -82,7 +84,7 @@ For Do commitments, the garment grows with consistency. For Avoid commitments, t
 
 ## Events
 
-**`GarmentUpdatedEvent`** — published after every garment update. Carries `definitionId`, `completionPercent`, and `weeklyDelta`. Consumed by the presentation layer only.
+**`GarmentUpdatedEvent`** — published after every performance change, no matter how small. The garment is always live — the user's most recent activity is always reflected immediately. There is no batch computation, no daily summary, no delay. Log activity and the garment moves. Carries `definitionId` and `completionPercent`. Consumed by the presentation layer only.
 
 ---
 

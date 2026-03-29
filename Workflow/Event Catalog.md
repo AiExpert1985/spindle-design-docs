@@ -154,7 +154,6 @@ Published by: GarmentService
 GarmentUpdatedEvent
   definitionId: String
   completionPercent: double
-  weeklyDelta: double
 ```
 
 `GarmentUpdatedEvent` consumed by the presentation layer for live display. When a garment completes, `GarmentService` calls `AchievementService.addAchievement()` directly — no event published for the achievement handoff.

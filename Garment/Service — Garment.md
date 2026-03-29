@@ -47,27 +47,21 @@ Idempotent — profile creation exits silently if profile already exists. Day re
 
 ```
 1. Read GarmentDayRecord for (definitionId, windowStart.date)
-2. if record == null: exit  // safety — should not occur
-3. if snapshot.commitmentState == frozen: exit  // safety net
-4. oldDelta = record.delta
-5. performanceValue = _getPerformance(event.definitionId, event.livePerformance, record.accelerationValue)
-6. newDelta = GarmentDeltaCalculator.calculate(performanceValue, commitmentType)
-7. record.delta = newDelta
-8. Save updated day record
-9. profile.completionPercent = clamp(profile.completionPercent - oldDelta + newDelta, 0.0, 100.0)
-10. Save updated profile
-11. Update live CommitmentWeeklyProgress record
-12. Publish GarmentUpdatedEvent
-13. _detectAchievements(profile, profile.completionPercent + oldDelta - newDelta)
+2. if record == null: exit  // no record means no active instance — frozen, completed, or deleted
+3. oldDelta = record.delta
+4. performanceValue = _getPerformance(event.definitionId, event.livePerformance, record.accelerationValue)
+5. newDelta = GarmentDeltaCalculator.calculate(performanceValue, commitmentType)
+6. record.delta = newDelta
+7. Save updated day record
+8. profile.completionPercent = clamp(profile.completionPercent - oldDelta + newDelta, 0.0, 100.0)
+9. Save updated profile
+10. Publish GarmentUpdatedEvent
+11. _detectAchievements(profile, profile.completionPercent + oldDelta - newDelta)
 ```
 
 ### `InstancePermanentlyDeletedEvent` → `_onCommitmentDeleted(event)`
 
-Deletes `GarmentProfile`, all `GarmentDayRecord` records, and all `CommitmentWeeklyProgress` records for this `definitionId`.
-
-### `WeekEndedEvent` → `_onWeekEnded(event)`
-
-Seals the live `CommitmentWeeklyProgress` record — sets `isCurrentWeek: false`. Creates new live record for the coming week.
+Deletes `GarmentProfile` and all `GarmentDayRecord` records for this `definitionId`.
 
 ---
 
@@ -114,7 +108,6 @@ AchievementService.addAchievement(AchievementRecord(
 GarmentUpdatedEvent
   definitionId: String
   completionPercent: double
-  weeklyDelta: double
 ```
 
 Published after every garment update. Consumed by the presentation layer for live display.
@@ -125,19 +118,11 @@ Published after every garment update. Consumed by the presentation layer for liv
 
 ### `watchGarmentProfile(definitionId)` → Stream<GarmentProfile?>
 
-### `getWeeklyProgress(definitionId, limit?)` → List<CommitmentWeeklyProgress>
-
-Current week first.
-
-### `getLiveWeekDelta(definitionId)` → double
-
-Running delta for the current week.
-
 ---
 
 ## Rules
 
-- The only writer of `GarmentProfile`, `GarmentDayRecord`, and `CommitmentWeeklyProgress`
+- The only writer of `GarmentProfile` and `GarmentDayRecord`
 - Reads definition once at garment creation — for `GarmentTypeResolver` input only
 - All resolver/calculator abstractions are injected — never instantiated inside the service
 - `accelerationValue` used for delta calculation always comes from the day record snapshot — never from the live accelerator
@@ -150,9 +135,8 @@ Running delta for the current week.
 
 - `CommitmentIdentityService` — subscribes to `InstanceCreatedEvent`, `InstancePermanentlyDeletedEvent`
 - `PerformanceService` — subscribes to `PerformanceUpdatedEvent`
-- `TemporalHelperService` — subscribes to `WeekEndedEvent`
 - `AchievementService` — calls `addAchievement()`
 - `AcceleratorService` — calls `getMultiplier()` at instance creation to snapshot acceleration
-- `GarmentRepository` — reads and writes all three models
+- `GarmentRepository` — reads and writes `GarmentProfile` and `GarmentDayRecord`
 - `CommitmentService.getDefinition()` — reads definition once at garment creation
 - `GarmentTypeResolver`, `ThreadColorResolver`, `GarmentDeltaCalculator` — injected

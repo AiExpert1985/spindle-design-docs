@@ -81,7 +81,7 @@ Available to Pro and Premium users only. Free tier always uses rule-based resolv
 
 ## Rules
 
-- Called only once — at garment creation via `GarmentService._onCommitmentCreated()`
+- Called only once — at garment creation via `GarmentService._onInstanceCreated()`
 - Result stored on `GarmentProfile.garmentType` — never re-evaluated
 - Synchronous interface — AI implementation uses rule-based result as immediate fallback
 - The resolver has no knowledge of rendering — returns a type, nothing more

@@ -44,11 +44,12 @@ This means every query has at most one range filter — zero composite index cos
 
 ## Required Composite Indexes
 
-Only two composite indexes needed for the entire app:
+Only three composite indexes needed for the entire app:
 
 ```
-instances:   definitionId ASC, windowStart ASC
-logEntries:  definitionId ASC, loggedAt ASC
+instances:        definitionId ASC, windowStart ASC
+logEntries:       definitionId ASC, loggedAt ASC
+garmentDayRecords: definitionId ASC, date ASC
 ```
 
 All other queries use single-field filters — Firestore handles those automatically with no composite index needed.
