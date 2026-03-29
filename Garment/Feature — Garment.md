@@ -2,8 +2,6 @@
 
 ---
 
-# Feature — Garment
-
 Garment gives each commitment a living visual form — a small garment that grows thread by thread with every kept day, or dissolves as a bad habit is broken. It makes the slow, invisible work of habit formation visible and personal.
 
 ---
