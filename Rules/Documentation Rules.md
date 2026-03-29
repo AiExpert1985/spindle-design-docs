@@ -142,26 +142,31 @@ Good: "Commitment facts rendered by `component_commitment_info` — see that doc
 
 ## 15. Later Improvements for Deferred Work
 
-Anything not in scope for the current phase goes in a dedicated "Later Improvements" section at the bottom of the doc. Each entry names what it adds and what it requires — feature dependency, phase — in one or two sentences. Never mix future plans into the current phase description.
+Anything not in scope for the current phase goes in a dedicated "Later Improvements" section. Each entry names what it adds and what it requires — feature dependency, phase — in one or two sentences. Never mix future plans into the current phase description.
 
 Good: "**Streak display.** Current streak and personal best. Requires the Rewards feature (Phase 2)." Bad: describing a Phase 2 feature inline as if it is part of the current design.
+
+**Where Later Improvements lives:**
+
+- **Feature cover docs** — the single home for all deferred work related to that feature. Detail docs (services, models, repositories) never have their own Later Improvements section. If a later improvement is discovered while writing a detail doc, add it to the feature cover.
+- **Component docs** — components are standalone and not owned by a single feature cover, so they keep their own Later Improvements section.
 
 ---
 
 ## 16. Feature Cover Docs
 
-Every feature has one cover doc named `feature_[name].md`. It is the entry point for understanding the feature before reading any detail doc. It is written in prose with clear section headers — no code blocks.
+Every feature has one cover doc named `feature_[name].md`. It is the entry point for understanding the feature before reading any detail doc. It is written in prose with clear section headers — no code blocks, except where a formula or algorithm is essential to understanding a design decision.
 
 **What it contains, in order:**
 
 - **Opening line** — one sentence: what this feature is.
 - **Why It Exists** — the problem it solves and why it sits where it does in the stack.
 - **Position in the System** — where it sits in the dependency chain, what it depends on, whether it produces events, consumes events, or both.
-- **What It Owns** — its models, services, and repositories by name only. What data it is the single source of truth for.
 - **How It Works** — the core flow in plain language. Key design decisions with one-line reasoning. What it does NOT do.
+- **Events** — the events this feature publishes. Why each event exists, who benefits from it, and why it was designed this way. Omit if the feature publishes no events.
 - **Who Uses It** — which kinds of features use it and for what purpose. Describe consumers by what they do, not by name — upper features are context, not contracts.
 - **Rules** — constraints specific to this feature that are not already in `architecture_rules`.
-- **Later Improvements** — deferred extensions only. Never add items not already planned.
+- **Later Improvements** — deferred extensions only. Never add items not already planned. This is the only Later Improvements section for the feature — detail docs do not have one.
 
 **Naming:** `feature_[name].md` — e.g. `feature_infrastructure.md`, `feature_commitment.md`.
 
