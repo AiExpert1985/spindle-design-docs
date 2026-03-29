@@ -81,8 +81,6 @@ if AppConfig.garmentUsesAccelerator == false:
 return accelerationValue * livePerformance
 ```
 
-Uses the snapshotted `accelerationValue` from the day record — not the live accelerator value.
-
 ### `_detectAchievements(profile, previousPercent)`
 
 Checks all garment achievement thresholds. Called after every garment update with the previous `completionPercent` before this update. Fires only on genuine threshold crossings.
@@ -94,8 +92,6 @@ wasComplete = previousPercent >= 100.0 (Do) or <= 0.0 (Avoid)
 if isComplete and not wasComplete:
   _addAchievement(AchievementSubtype.garmentCompleted, profile)
 ```
-
-Adding a new achievement threshold means one new condition check here — nothing else changes.
 
 ### `_addAchievement(subtype, profile)`
 
@@ -128,8 +124,6 @@ Published after every garment update. Consumed by the presentation layer for liv
 ## Read Functions
 
 ### `watchGarmentProfile(definitionId)` → Stream<GarmentProfile?>
-
-Live stream for the commitment detail screen.
 
 ### `getWeeklyProgress(definitionId, limit?)` → List<CommitmentWeeklyProgress>
 

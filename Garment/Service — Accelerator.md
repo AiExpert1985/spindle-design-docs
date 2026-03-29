@@ -72,7 +72,7 @@ Reads from repository. If null, creates with `multiplierValue: 1.0`.
 
 ## Events Subscribed
 
-### `InstancePermanentlyDeletedEvent` (Commitment) → `_onDeleted(event)`
+### `InstancePermanentlyDeletedEvent` (CommitmentIdentityService) → `_onDeleted(event)`
 
 Deletes the `AcceleratorRecord` for this `definitionId`.
 
@@ -91,15 +91,7 @@ Deletes the `AcceleratorRecord` for this `definitionId`.
 
 ## Dependencies
 
-- `CommitmentService` — subscribes to `InstancePermanentlyDeletedEvent`
+- `CommitmentIdentityService` — subscribes to `InstancePermanentlyDeletedEvent`
 - `StreakService.getStreakRecord()` — current streak per commitment
 - `AcceleratorRepository` — reads and writes `AcceleratorRecord`
 - `AppConfig` — `acceleratorFloor`, `acceleratorCeiling`, `garmentUsesAccelerator`
-
----
-
-## Later Improvements
-
-**Adjustment formula.** Design after real user data is available. `_adjustMultiplier()` is the single place to implement it.
-
-**Asymmetric recovery rate.** Make the accelerator recover faster than it declines. Requires separate `acceleratorUpStep` and `acceleratorDownStep` constants in `AppConfig`.
