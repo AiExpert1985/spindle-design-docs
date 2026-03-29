@@ -2,6 +2,8 @@
 
 ---
 
+# Feature — Streak
+
 Streak tracks consecutive kept and missed windows for each commitment using a single signed integer. It is the momentum signal of the app — consumed by features that need to know the direction and strength of a user's recent pattern.
 
 ---
@@ -24,7 +26,7 @@ Consuming only — publishes nothing. No `StreakChangedEvent` exists. Features t
 
 ## How It Works
 
-Every commitment has one `StreakRecord` — created lazily on first window evaluation. It holds a signed integer (`currentStreak`) and the all-time best positive value (`bestStreak`).
+Every commitment has one `StreakRecord` — created lazily on first window evaluation. It holds a signed integer (`currentStreak`), the all-time best positive value (`bestStreakValue`), and the date that best was achieved (`bestStreakDate`). `bestStreakDate` is null until the first positive streak — set whenever `currentStreak` exceeds `bestStreakValue`.
 
 **The signed streak.** Positive = consecutive kept windows. Negative = consecutive missed windows. Zero = neutral.
 
@@ -41,13 +43,13 @@ One number carries both direction and magnitude. Zero as a neutral buffer is int
 
 **Frozen windows are neutral.** The record is left unchanged — the streak resumes from where it paused.
 
-**Weekly vs daily evaluation.** Daily and specific-day commitments are evaluated on window close. Weekly commitments are evaluated at week end — evaluating on daily close would be wrong, since missing one day on a weekly commitment does not mean the goal failed.
+**Weekly vs daily evaluation.** Daily and specific-day commitments are evaluated on window close. Weekly commitments are evaluated at week end — evaluating on daily close would be wrong, since missing one day on a weekly commitment does not mean the goal failed. The entire week must close before the streak can be judged. `StreakService` checks the instance's recurrence type at window close and skips weekly commitments there, processing them when `WeekEndedEvent` fires instead.
 
 ---
 
 ### No GlobalBestStreakRecord Model
 
-The global best is computed on demand by scanning all `StreakRecord`s — at most a few dozen per user — and finding the highest `bestStreak`. No dedicated model or separate document to maintain. When a commitment's `bestStreak` updates, the service checks whether it is now strictly greater than every other. A tie does not count — it means the record already exists at that value.
+The global best is computed on demand by scanning all `StreakRecord`s — at most a few dozen per user — and finding the highest `bestStreakValue`. No dedicated model or separate document to maintain. When a commitment's `bestStreakValue` updates, the service checks whether it is now strictly greater than every other. A tie does not count — it means the record already exists at that value.
 
 ---
 
@@ -66,15 +68,9 @@ The two never overlap — per-commitment milestones recognize individual effort,
 ## Rules
 
 - No `StreakChangedEvent` — streak changes are internal, features call `getStreakRecord()` directly
-- Weekly commitments evaluated at week end only
+- Weekly commitments evaluated at week end only — recurrence type checked at window close
 - Frozen windows leave the record unchanged
-- `bestStreak` tracks positive peaks only
-- Per-commitment milestone fires at every positive multiple of 3
-- Global best fires only when strictly greater than all other `bestStreak` values — ties ignored
+- `bestStreakValue` and `bestStreakDate` updated together whenever a new positive best is reached
+- Per-commitment milestone fires at every positive multiple of `AppConfig.streakStep` (default: 3)
+- Global best fires only when strictly greater than all other `bestStreakValue`s — ties ignored
 - Global best computed on demand — no dedicated model
-
----
-
-## Later Improvements
-
-**`bestStreakDate`** on `StreakRecord` — when the personal best was achieved. Useful for the Your Record display. Deferred until the display screen is designed.

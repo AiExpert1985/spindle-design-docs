@@ -218,7 +218,7 @@ No event subscriptions — producing features call `addAchievement()` directly d
 
 **Public functions:** `getStreakRecord(definitionId)`, `watchStreakRecord(definitionId)`, `getBestStreakOverall()`
 
-**Subscribes to:** `InstanceUpdatedEvent` where `status: closed` (Commitment), `InstancePermanentlyDeletedEvent` (Commitment), `WeekEndedEvent` (TemporalHelper)
+**Subscribes to:** `InstanceUpdatedEvent` where `status: closed` (CommitmentIdentityService), `InstancePermanentlyDeletedEvent` (CommitmentIdentityService), `WeekEndedEvent` (TemporalHelper)
 
 **Calls directly:** `PerformanceService.isWindowSuccess()`, `PerformanceService.getCommitmentWeekScore()`, `CommitmentIdentityService.getInstancesForWeek()`, `AchievementService.addAchievement()`
 

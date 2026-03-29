@@ -9,9 +9,10 @@
 ## AppConfig Constants
 
 ```
-streakMilestones: every positive multiple of 3 (3, 6, 9, 12...)
-  Handled by formula: currentStreak % 3 == 0 and currentStreak > 0
-  No config list needed — formula handles any streak length automatically.
+streakStep: 3
+  The interval between streak milestones.
+  Milestone fires when currentStreak % streakStep == 0 and currentStreak > 0.
+  Changing this value adjusts all milestone thresholds automatically.
 ```
 
 ---
@@ -24,11 +25,10 @@ streakMilestones: every positive multiple of 3 (3, 6, 9, 12...)
 if snapshot.recurrence == Weekly: return   // weekly evaluated at week end
 if snapshot.commitmentState == frozen: return
 
-record = _getOrCreateRecord(event.definitionId)
-previousStreak = record.currentStreak
-record = _updateStreak(record, PerformanceService.isWindowSuccess(snapshot.livePerformance))
-StreakRepository.saveRecord(record)
-_detectAchievements(record, previousStreak, snapshot.name)
+previousRecord = _getOrCreateRecord(event.definitionId)
+updatedRecord = _updateStreak(previousRecord, PerformanceService.isWindowSuccess(snapshot.livePerformance))
+StreakRepository.saveRecord(updatedRecord)
+_detectAchievements(updatedRecord, previousRecord, snapshot.name)
 ```
 
 ### `WeekEndedEvent` → `_onWeekEnded(event)`
@@ -39,12 +39,11 @@ weeklyInstances = instances.where(i => i.recurrence == Weekly)
 
 for each unique definitionId in weeklyInstances:
   score = PerformanceService.getCommitmentWeekScore(definitionId, event.weekStart)
-  record = _getOrCreateRecord(definitionId)
-  previousStreak = record.currentStreak
-  record = _updateStreak(record, PerformanceService.isWindowSuccess(score))
+  previousRecord = _getOrCreateRecord(definitionId)
+  updatedRecord = _updateStreak(previousRecord, PerformanceService.isWindowSuccess(score))
   name = weeklyInstances.first(definitionId).name
-  StreakRepository.saveRecord(record)
-  _detectAchievements(record, previousStreak, name)
+  StreakRepository.saveRecord(updatedRecord)
+  _detectAchievements(updatedRecord, previousRecord, name)
 ```
 
 ### `InstancePermanentlyDeletedEvent` → `_onDeleted(event)`
@@ -65,30 +64,31 @@ if isSuccess:
 else:
   currentStreak = currentStreak <= 0 ? currentStreak - 1 : 0
 
-if currentStreak > bestStreak:
-  bestStreak = currentStreak
+if currentStreak > bestStreakValue:
+  bestStreakValue = currentStreak
+  bestStreakDate = now
 
 return updated record
 ```
 
-### `_detectAchievements(record, previousStreak, commitmentName)`
+### `_detectAchievements(record, previousRecord, commitmentName)`
 
 ```
-// per-commitment milestone — every positive multiple of 3
-if record.currentStreak > 0 and record.currentStreak % 3 == 0
-    and record.currentStreak != previousStreak:
+// per-commitment milestone — every positive multiple of streakStep
+if record.currentStreak > 0 and record.currentStreak % AppConfig.streakStep == 0
+    and record.currentStreak != previousRecord.currentStreak:
   _addAchievement(AchievementSubtype.streakMilestone, record.definitionId, commitmentName)
 
-// global best — only when strictly greater than all others
-if record.bestStreak > previousBestStreak(record):
-  globalBest = _findBestStreak(excluding: record.definitionId)
-  if record.bestStreak > globalBest:
+// global best — only when bestStreakValue improved and is strictly greater than all others
+if record.bestStreakValue > previousRecord.bestStreakValue:
+  best = _findBestStreak(excluding: record.definitionId)
+  if best == null or record.bestStreakValue > best.bestStreakValue:
     _addAchievement(AchievementSubtype.globalBestStreak, record.definitionId, commitmentName)
 ```
 
-### `_findBestStreak(excluding definitionId?)` → int
+### `_findBestStreak(excluding definitionId?)` → StreakRecord?
 
-Fetches all `StreakRecord`s, optionally excluding one `definitionId`, and returns the highest `bestStreak` value. At most a few dozen records per user — not expensive.
+Fetches all `StreakRecord`s, optionally excluding one `definitionId`, and returns the record with the highest `bestStreakValue`. Returns null if no records exist. At most a few dozen records per user.
 
 ### `_addAchievement(subtype, definitionId, commitmentName)`
 
@@ -105,7 +105,7 @@ AchievementService.addAchievement(AchievementRecord(
 
 ### `_getOrCreateRecord(definitionId)` → StreakRecord
 
-Reads from repository. If null, creates with `currentStreak: 0`, `bestStreak: 0`.
+Reads from repository. If null, creates with `currentStreak: 0`, `bestStreakValue: 0`, `bestStreakDate: null`.
 
 ---
 
@@ -121,7 +121,7 @@ Live stream for UI display.
 
 ### `getBestStreakOverall()` → StreakRecord?
 
-Returns the `StreakRecord` with the highest `bestStreak` across all commitments. Computed via `_findBestStreak()`.
+Returns the `StreakRecord` with the highest `bestStreakValue` across all commitments. Computed via `_findBestStreak()` with no exclusion. Returns null if no records exist yet.
 
 ---
 
@@ -130,7 +130,7 @@ Returns the `StreakRecord` with the highest `bestStreak` across all commitments.
 - No `StreakChangedEvent` — streak changes are internal
 - Weekly commitments skip `_onWindowClosed` — evaluated at week end only
 - Frozen windows are neutral — record left unchanged
-- `bestStreak` tracks positive peaks only
+- `bestStreakValue` and `bestStreakDate` updated together — only when a new positive best is reached
 - Per-commitment milestone fires at every positive multiple of 3
 - Global best fires only when strictly greater than all others — ties ignored
 - `commitmentName` read from instance snapshot — no definition lookup needed
@@ -146,4 +146,4 @@ Returns the `StreakRecord` with the highest `bestStreak` across all commitments.
 - `PerformanceService.getCommitmentWeekScore()` — weekly score
 - `AchievementService.addAchievement()` — records achievements
 - `StreakRepository` — reads and writes `StreakRecord`
-- `AppConfig` — streak milestone formula constants
+- `AppConfig` — `streakStep`

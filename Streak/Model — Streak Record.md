@@ -11,15 +11,17 @@
 ```
 StreakRecord
   definitionId: String
-  currentStreak: int     // signed — positive good, negative bad, zero neutral
-  bestStreak: int        // all-time peak positive value — never decreases
+  currentStreak: int        // signed — positive good, negative bad, zero neutral
+  bestStreakValue: int       // all-time peak positive value — never decreases
+  bestStreakDate: DateTime?  // when bestStreakValue was last set — null until first positive streak
   createdAt: DateTime
   updatedAt: DateTime
 ```
 
-- **definitionId** — the commitment this record belongs to. Also the document ID in storage — no separate `id` field needed. One record per commitment, `definitionId` is the unique key.
+- **definitionId** — the commitment this record belongs to. Also the document ID in storage. One record per commitment.
 - **currentStreak** — the live signed streak value. Updated on every window evaluation.
-- **bestStreak** — tracks only positive peaks. Updated when `currentStreak > bestStreak`. Never affected by negative streaks.
+- **bestStreakValue** — tracks only positive peaks. Updated when `currentStreak` exceeds `bestStreakValue`. Never affected by negative streaks.
+- **bestStreakDate** — the date `bestStreakValue` was last set. Null until the first positive streak is achieved. Updated together with `bestStreakValue`.
 - **createdAt** — set once on first window evaluation for this commitment.
 - **updatedAt** — updated on every write.
 
@@ -30,6 +32,6 @@ StreakRecord
 - One record per commitment — created on first window evaluation, never recreated
 - `CommitmentDefinition` has no streak fields — all streak state lives here
 - Frozen windows leave the record unchanged
-- `bestStreak` updated only when `currentStreak` is positive and exceeds the current best
+- `bestStreakValue` and `bestStreakDate` updated together — only when `currentStreak` is positive and exceeds `bestStreakValue`
 - Written only by `StreakService`
 - Deleted when `InstancePermanentlyDeletedEvent` fires for this `definitionId`
