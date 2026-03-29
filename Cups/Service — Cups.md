@@ -1,4 +1,4 @@
-**File Name**: service_cup **Feature**: Cups **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: service_cup **Feature**: Cups **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
@@ -24,7 +24,7 @@ _addAchievement(cup)
 
 ### `backfillMissingCups()` — on app startup
 
-Looks back `AppConfig.cupBackfillWeeks` (default: 8) weeks. For each past week with no cup record, fetches score and awards a cup silently. No achievement recorded for backfilled cups — they are historical records only. Backfill is bounded to satisfy the windowed fetch rule.
+Looks back `AppConfig.cupBackfillWeeks` (default: 8) weeks. For each past week with no cup record, fetches score and awards a cup including its achievement record. No celebration notification is triggered for backfilled cups. Backfill is bounded to satisfy the windowed fetch rule.
 
 ---
 
@@ -84,7 +84,7 @@ Used internally and by `AchievementService` for reads beyond what `AchievementRe
 
 - Cups based on raw `getOverallWeekScore()` — never accelerator-modified
 - Idempotent — one cup per week maximum, checked before write
-- No achievement recorded for backfilled cups
+- Backfilled cups record achievements identically to live cups — no celebration notification only
 - Thresholds are percentage values in `AppConfig`
 
 ---
