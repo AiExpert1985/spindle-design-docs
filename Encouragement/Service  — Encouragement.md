@@ -13,6 +13,7 @@
 Day celebration Path B — fires at configured celebration time.
 
 ```
+userPrefs = UserCoreService.getProfile().temporalPreferences
 if not isNearTime(tick.timestamp, userPrefs.celebrationTime): return
 if dayCelebrationFiredToday: return   // in-memory guard
 if not userPrefs.celebrationEnabled: return
@@ -21,25 +22,31 @@ dayCelebrationFiredToday = true
 _evaluateDayCelebration(today)
 ```
 
+> **Note:** `dayCelebrationFiredToday` is an in-memory flag — it resets if the app is force-closed and reopened on the same day. This is a known limitation to address in a later improvement.
+
 ### `ActivityEvent` → `_onActivityRecorded(event)`
 
 Immediate feedback after a positive log. Deferred to Phase 2.
 
 ```
-if livePerformance did not increase: return
+currentPerformance = PerformanceService.getDayScore(today, event.definitionId)
+if currentPerformance <= previousPerformance: return   // no feedback on miss
 
-emit LogFeedbackSignal(livePerformance, event.definitionId)
+emit LogFeedbackSignal(currentPerformance, event.definitionId)
 
 // threshold crossings — tracked in memory, fire once per session per threshold
 if crossed 50%:  emit ThresholdMessageSignal("Halfway there.")
 if crossed 100%: emit ThresholdMessageSignal("Commitment kept.")
 ```
 
+`previousPerformance` is the cached value from the last known state for this commitment, held in memory for the session.
+
 ### `InstanceUpdatedEvent` where `snapshot.status == closed` → `_onWindowClosed(event)`
 
 Day celebration Path A — in-app trigger.
 
 ```
+userPrefs = UserCoreService.getProfile().temporalPreferences
 instances = CommitmentIdentityService.getInstancesForDay(today)
 allClosed = instances.all(i => i.status == closed)
 if not allClosed: return

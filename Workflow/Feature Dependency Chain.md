@@ -264,9 +264,9 @@ No public events published. Streak changes are internal. Achievement detection (
 
 ### Encouragement
 
-**Subscribes to:** `longIntervalTick` (Heartbeat), `ActivityEvent` (Activity), `InstanceUpdatedEvent` where `status: closed` (Commitment), `AchievementEarnedEvent` (Achievements), `LevelReachedEvent` (Progression)
+**Subscribes to:** `longIntervalTick` (Heartbeat), `ActivityEvent` (ActivityService), `InstanceUpdatedEvent` where `status: closed` (CommitmentIdentityService)
 
-**Calls directly:** `PerformanceService.getDayScore()`, `CommitmentIdentityService.getInstancesForDay()`, `AnalyticsService.computeDayFacts()`, `UserCoreService.getProfile()`, `UserSettingsService.recordEncouragementSent()`, `UserSettingsService.getLastEncouragementType()`
+**Calls directly:** `PerformanceService.getDayScore()`, `PerformanceService.getPerformanceForPeriod()`, `CommitmentIdentityService.getInstancesForDay()`, `UserCoreService.getProfile()`, `UserSettingsService.recordEncouragementSent()`, `UserSettingsService.getLastEncouragementType()`
 
 ---
 
