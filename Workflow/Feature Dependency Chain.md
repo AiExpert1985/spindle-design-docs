@@ -254,7 +254,7 @@ No public events published. Streak changes are internal. Achievement detection (
 
 **Publishes:** `LevelReachedEvent(newLevel, levelName, previousLevel)`
 
-**Public functions (ProgressionService):** `awardPoints(points, subtype)` (called by ScoringService internally), `getProgressionSummary()`, `watchProgressionSummary()`, `getCurrentWeekProjection()`, `isReferralUnlocked()`
+**Public functions (ProgressionService):** `getProgressionSummary()`, `watchProgressionSummary()`, `getCurrentWeekProjection()`, `isReferralUnlocked()`
 
 **Subscribes to:** `AchievementEarnedEvent` (Achievements) — consumed by ScoringService internally
 

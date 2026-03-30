@@ -22,25 +22,29 @@ Sits above Achievements, which it subscribes to for `AchievementEarnedEvent`. Al
 
 ## How It Works
 
-Progression is composed of two internal services — `ScoringService` and `ProgressionService` — connected by an internal event. No feature outside Progression interacts with either service directly except through the public interface of `ProgressionService`.
+Progression is composed of two internal services — `ScoringService` and `ProgressionService` — connected by a direct call. No feature outside Progression interacts with either service directly except through the public interface of `ProgressionService`.
 
 ### Scoring
 
-`ScoringService` subscribes to `AchievementEarnedEvent`. When an achievement arrives, it looks up the point value for that subtype in `AppConfig` and calls `ProgressionService.awardPoints()` directly. That is all it does — translate achievement subtypes into point values and hand them off.
+`ScoringService` subscribes to `AchievementEarnedEvent`. When an achievement arrives, it looks up the point value for that subtype in `AppConfig` and calls `ProgressionService.awardPoints()` directly.
 
-The lookup is `subtype → points`, not `type → points`, because different achievements of the same type have different values — a diamond cup is worth more than a bronze cup. The point values are all configurable placeholders, to be tuned from real user data after launch.
+**Why `ScoringService` is separate from `ProgressionService`.** `ProgressionService` only needs to know about points — it should never understand what an achievement is or what it is worth. Keeping scoring separate means changing point values, or adding new achievement subtypes, only touches `AppConfig` and the lookup table. `ProgressionService` is untouched in both cases.
 
-`ProgressionService` knows nothing about achievements. It only receives points. This means changing what achievements are worth, or adding new ones, never touches `ProgressionService`.
+**Why `subtype → points`, not `type → points`.** Different achievements of the same type have different values — a diamond cup is worth more than a bronze cup. Subtype is the specific semantic label, making it the right key. All values are configurable placeholders to be tuned after launch.
 
 ### Level Progression
 
-`ProgressionService` subscribes to `PointsAwardedEvent`. It adds points to the current level's progress and checks for a level-up. **Points carry over on level-up** — if a level requires 10 points and the user earns 13, they start the next level with 3. This is intentional: excess points represent real effort and should not be erased. It also prevents a cliff-edge feeling when a burst of activity crosses a level boundary.
+`ProgressionService` receives points via `awardPoints()`, adds them to the current level's progress, and checks for a level-up.
+
+**Why points carry over on level-up.** Resetting to zero on level-up would erase points the user legitimately earned. If a level requires 10 points and the user earns 13, they start the next level with 3 — the extra 3 represent real effort and should count. It also prevents a cliff-edge feeling when a burst of activity crosses a level boundary.
 
 There are eight levels. All eight `LevelRecord` entries are created at account initialization — the user can see the full path from day one. Pending levels show their names and thresholds but have zero progress. When the user reaches the final level (Penelope), points continue accumulating but no further level-up fires.
 
 ### Live Level Map
 
-The Progression screen shows all eight levels with live progress. Level records are maintained live on every points award — not computed on read. This means the screen is always a direct read with no recalculation. The cost is extra writes; the benefit is a screen that never lags behind reality.
+The Progression screen shows all eight levels with live progress. Level records are maintained live on every points award — not computed on read.
+
+**Why not compute on read.** The screen would need to re-read all achievement history and recalculate all points on every open. Maintaining live records means the screen is always a direct read with no recalculation. The cost is extra writes per points award; the benefit is a screen that always reflects current state instantly.
 
 ---
 

@@ -23,7 +23,7 @@ abstract class ProgressionRepository {
 }
 ```
 
-`getProfile` — returns null if no profile exists yet. Created on first `PointsAwardedEvent`.
+`getProfile` — returns null if no profile exists yet. Created lazily on first `awardPoints()` call.
 
 `saveProfile` — full replace. Called after every points update.
 
