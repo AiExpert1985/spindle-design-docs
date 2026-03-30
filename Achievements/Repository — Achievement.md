@@ -1,8 +1,8 @@
-**File Name**: repository_achievement **Feature**: Achievements **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: repository_achievement **Feature**: Achievements **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** storage for `AchievementRecord`. The single source of truth for all achievement history. Called only by `AchievementService`.
+**Purpose:** storage for `AchievementRecord`. Called only by `AchievementService`.
 
 ---
 
@@ -15,8 +15,8 @@ abstract class AchievementRepository {
   Future<List<AchievementRecord>> getAchievements(
     DateTime from,
     DateTime to, {
-    AchievementType? type,
-    AchievementSubtype? subtype,
+    String? type,
+    String? subtype,
     String? definitionId,
   });
   Stream<List<AchievementRecord>> watchAchievements(DateTime from, DateTime to);
@@ -25,11 +25,11 @@ abstract class AchievementRepository {
 
 `saveRecord` — append-only. Never called for updates.
 
-`existsForSource(sourceId)` — idempotency safety net. Called before every write. Producing features guarantee no duplicate calls — this is a secondary defensive check.
+`existsForSource(sourceId)` — idempotency safety net. Called before every write.
 
-`getAchievements(from, to, type?, subtype?, definitionId?)` — unified read. All parameters optional except the time window. Ordered by `createdAt` descending. Used for all reads — cups history, streak achievements, garment achievements, all of them.
+`getAchievements(from, to, type?, subtype?, definitionId?)` — unified read. All filters optional except the time window. Ordered by `createdAt` descending.
 
-`watchAchievements(from, to)` — live stream. Used by the achievements screen during a session.
+`watchAchievements(from, to)` — live stream.
 
 ---
 
@@ -47,6 +47,5 @@ Covered by existing security rule.
 
 - Called only by `AchievementService`
 - Append-only — no update or delete operations
-- Records are permanent — never deleted for any reason
 - `existsForSource` called before every write
 - All reads use a time window — never fetch unbounded history

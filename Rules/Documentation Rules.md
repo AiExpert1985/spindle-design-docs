@@ -162,6 +162,7 @@ Every feature has one cover doc named `feature_[name].md`. It is the entry point
 - **Opening line** — one sentence: what this feature is.
 - **Why It Exists** — the problem it solves and why it sits where it does in the stack.
 - **Position in the System** — where it sits in the dependency chain, what it depends on, whether it produces events, consumes events, or both.
+- State where the feature sits in the dependency stack — what is below it and what is above it. Do not name features that sit above it — describe what they do instead. Features below it can be named since they are known dependencies. Good: "Sits above Performance and Commitment. Features that track visual habit progress depend on it. Features that score achievements read from it." Bad: "Sits above Performance. Garment reads from it. Progression scores from it."
 - **How It Works** — the core flow in plain language. Key design decisions with one-line reasoning. What it does NOT do.
 - **Events** — the events this feature publishes. Why each event exists, who benefits from it, and why it was designed this way. Omit if the feature publishes no events.
 - **Who Uses It** — which kinds of features use it and for what purpose. Describe consumers by what they do, not by name — upper features are context, not contracts.

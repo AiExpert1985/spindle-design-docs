@@ -2,6 +2,8 @@
 
 ---
 
+# Feature — Achievements
+
 Achievements is the collection point for every meaningful moment the user earns across all features. It does not detect achievements — it receives them. Any feature that reaches an achievement moment calls `addAchievement()` downward. Achievements stores the record, publishes the event, and serves all achievement reads from a single collection.
 
 ---
@@ -14,9 +16,7 @@ Without a unified achievement store, each producing feature would need to answer
 
 ## Position in the System
 
-Sits below all producing features — Cups, Streak, and Garment all call downward into it. Sits below Progression, which consumes `AchievementEarnedEvent` to award points. Features that need to respond to achievement moments also subscribe to `AchievementEarnedEvent` from above.
-
-No event subscriptions of its own — producing features call `addAchievement()` directly. Adding a new producing feature requires zero changes here.
+Sits above the storage layer only — `AchievementRepository` is its sole dependency below. Features that produce achievements (cups, streak milestones, garment completions) sit above it and call down into it. Features that consume achievement data for scoring, display, or encouragement sit further above and read from it.
 
 ---
 
@@ -24,7 +24,29 @@ No event subscriptions of its own — producing features call `addAchievement()`
 
 **One write path.** `addAchievement(AchievementRecord)` is the only entry point. It checks idempotency, writes the record, and publishes `AchievementEarnedEvent`. Every achievement — cup, streak milestone, global best streak, garment completion — enters the system through this single function.
 
-**Achievement detection belongs to producing features.** Each service already knows exactly when its achievement moment occurs and already has all the data needed. Each producing service runs `_detectAchievements()` internally and calls down. This feature has no knowledge of what triggered a record — it only stores and serves.
+**Why producing features call down, not the other way around.** The original design had Achievements sitting above Cups, Streak, and Garment, subscribing to their events:
+
+```
+Cups    → CupEarnedEvent          → AchievementService subscribes
+Streak  → GlobalBestStreakEvent   → AchievementService subscribes
+Garment → GarmentCompletedEvent   → AchievementService subscribes
+```
+
+This had a hidden contradiction. Achievements needed to sit above producers to subscribe to their events — but Progression needed to sit above Achievements to subscribe to `AchievementEarnedEvent`. This forced a tall chain where Achievements was both a subscriber looking down and a publisher looking up. Worse, if Achievements sat above Cups and Streak, any read for cup history or best streak had to proxy back down to those features — a middleman that added complexity without adding value.
+
+The insight: an aggregator that stores everything it receives owns all the data it needs. If every achievement flows through `addAchievement()`, the `AchievementRecord` collection becomes the single source of truth. Cup history is achievements where `type == cup`. Best streak is achievements where `subtype == globalBestStreak`. No proxying, no external reads.
+
+Moving Achievements below the producers resolved everything:
+
+```
+Cups    → AchievementService.addAchievement()
+Streak  → AchievementService.addAchievement()
+Garment → AchievementService.addAchievement()
+```
+
+Producing features call downward — valid in the dependency chain. Achievements reads from its own collection — no upward calls. Progression subscribes to `AchievementEarnedEvent` downward — valid. Adding a new producing feature requires zero changes here.
+
+This is an inversion of the typical observer pattern. Instead of the aggregator watching producers (pull via events), producers notify the aggregator directly (push via direct call). The aggregator becomes a write-through store — one write door, all reads self-served from the stored collection. In formal terms this maps to the write side of CQRS: `addAchievement()` is the command path, `getAchievements()` is the query path, and the `AchievementRecord` collection is the single source of truth for both.
 
 **Records are permanent.** Achievements are facts about the user's history. Deleting a commitment does not erase what was accomplished with it. `sourceId` may become stale if the originating record is deleted, but the achievement remains valid and displayable.
 
@@ -46,7 +68,10 @@ achievement_garment.dart  → enum GarmentAchievement
 
 Each enum value carries its own `description` as a compile-time constant — no lookup table, no switch statement, no separate map. The description lives exactly where the achievement is defined.
 
+Example of how one group is structured:
+
 ```dart
+// achievement_cup.dart
 enum CupAchievement {
   bronze('Kept 60% of your commitments this week'),
   silver('Kept 75% of your commitments this week'),
@@ -58,6 +83,8 @@ enum CupAchievement {
   String get type => 'cup';
 }
 ```
+
+All other groups follow the same pattern in their own files.
 
 **Why enhanced enums, not sealed classes.** Dart enums are already sealed — they cannot be subclassed. Enhanced enums support fields, constructors, and methods, giving all the structure needed without the serialization complexity of sealed classes. Storing and retrieving is trivial: `.name` serializes, `.byName()` deserializes. Both are built-in Dart properties — compile-safe, no string literals.
 
