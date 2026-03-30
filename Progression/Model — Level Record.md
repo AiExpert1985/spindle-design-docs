@@ -1,18 +1,8 @@
-**File Name**: model_level_record **Feature**: Progression **Phase**: 3 **Created**: 26-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: model_level_record **Feature**: Progression **Phase**: 3 **Created**: 26-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** one record per level per user. Together these eight records form the user's complete level map — showing which levels are done, which is active, and which are still ahead.
-
----
-
-## Design Rationale
-
-**Why a collection instead of a field on ProgressionProfile.** `ProgressionProfile` previously stored `levelAchievedDates` as a list. A separate collection is better because each level is a first-class object with its own status, points, and date. The screen can query all eight records and render the full map without any list index gymnastics. Adding new level metadata (flavor text, icon, date) requires no model changes — it is already a document.
-
-**Why all eight records are created upfront.** Creating all levels at account initialization means the Progression screen always has a complete map to render — no conditional logic for "has this level been reached yet." Pending levels simply have `status: pending` and `achievedAt: null`. This is also consistent with the UX goal of showing the user the full path from day one.
-
-**Why points carry over, not reset to zero.** See `model_progression_profile` for the full rationale. `pointsEarned` stores how many points the user accumulated toward this specific level — for `done` levels this equals `pointsRequired` (they completed it). For the `current` level this is the live progress. For `pending` levels it is 0.
+**Purpose:** one record per level per user. Together the eight records form the user's complete level map — showing which levels are done, which is active, and which are still ahead.
 
 ---
 

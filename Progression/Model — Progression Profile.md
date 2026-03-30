@@ -1,20 +1,8 @@
-**File Name**: model_progression_profile **Feature**: Progression **Phase**: 3 **Created**: 17-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: model_progression_profile **Feature**: Progression **Phase**: 3 **Created**: 17-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** stores the user's current progression state. One record per user. Contains current points toward the active level and the cached current level.
-
----
-
-## Design Rationale
-
-**Why points reset per level (carry-over model).** When the user levels up, the points required for the completed level are subtracted. Any excess carries over into the next level. Example: level requires 10 points, user has 13 — they start the next level with 3 points already earned.
-
-This means `currentPoints` always represents progress toward the current level, not a lifetime total. The user always sees a clear, answerable question: "I have X points, I need Y for the next level." A running lifetime total is less motivating — it grows forever and the gap to the next level is harder to feel.
-
-**Why `bonusPointsTotal` was removed.** The original design had bonus points as a separate category. This added complexity without clarity — users don't think in "base points" vs "bonus points." Every achievement has one point value. The scoring system is one clean table. One points field is sufficient.
-
-**Why `currentLevel` is cached.** Level is derived from the `LevelRecord` collection — whichever record has `status: current`. Caching it here avoids a collection query on every read. It is always kept in sync when `ProgressionService` updates the profile.
+**Purpose:** stores the user's current progression state. One record per user. Holds current points toward the active level and the cached current level index.
 
 ---
 

@@ -171,21 +171,16 @@ AchievementEarnedEvent
 
 ## Progression Events
 
-Published by: ProgressionService (LevelReachedEvent), ScoringService (PointsAwardedEvent — internal only)
+Published by: ProgressionService
 
 ```
 LevelReachedEvent
   newLevel: int
   levelName: String
   previousLevel: int
-
-PointsAwardedEvent             // internal to Progression — never subscribed outside
-  points: double
-  subtype: String
-  createdAt: DateTime
 ```
 
-`LevelReachedEvent` consumed by `EncouragementService` for celebration and `NotificationSchedulingService` for the level-up notification. `PointsAwardedEvent` is internal — `ScoringService` publishes it, `ProgressionService` consumes it. No feature outside Progression subscribes to it.
+`LevelReachedEvent` consumed by features above that celebrate level-ups or send level-up notifications.
 
 ---
 
