@@ -18,7 +18,7 @@ Returns the current subscription tier. Called by any feature that gates behavior
 
 ### `getTemporalPreferences() → UserTemporalPrefs`
 
-Returns `weekStartDay`, `restDays`, `dayBoundaryHour`, `wakingHoursStart`, `wakingHoursEnd` as a `UserTemporalPrefs` value object. Called only by `TemporalHelperService` internally — no other feature calls this directly.
+Returns `weekStartDay`, `restDays`, `dayBoundaryHour`, `wakingHoursStart`, `wakingHoursEnd` as a `UserTemporalPrefs` value object. Passed directly into `TemporalHelper` static functions by callers — `TemporalHelper` never calls this itself.
 
 ### `getActivityWindowDefaults(recurrence) → ActivityWindowDefaults`
 

@@ -1,8 +1,8 @@
-**File Name**: service_usersettings **Feature**: UserSettings **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: service_usersettings **Feature**: UserSettings **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
-**Purpose:** the only writer of both `UserCoreProfile` and `UserSettingsProfile`. Manages high-level user state — encouragement tracking, AI quota, onboarding, subscription, and referral. Also owns all preference write functions. Sits at the top of the feature chain because `UserCapabilityService` (internal to this feature) depends on `CommitmentService` and `PerformanceService`.
+**Purpose:** the only writer of both `UserCoreProfile` and `UserSettingsProfile`. Manages encouragement tracking, AI quota, onboarding state, subscription, and referral. Owns all preference write functions.
 
 Low-level preference reads are served by `UserCoreService` — features that only need to read preferences call `UserCoreService` directly without depending on `UserSettingsService`.
 
@@ -60,7 +60,7 @@ Returns `lastEncouragementType` from `UserSettingsProfile`. Returns null if no s
 
 ## Quota Functions
 
-### `checkAndDecrementInsightQuota()` → Result<int>
+### `checkAndDecrementInsightQuota()` → Result< int>
 
 Manages the free-tier micro-insight quota on `UserSettingsProfile`. Called only by `AIInsightService` — never by the presentation layer directly.
 

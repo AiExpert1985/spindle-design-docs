@@ -38,4 +38,5 @@ Covered by the standard security rule.
 
 - `getProfile()` and `watchProfile()` called only by `UserCoreService`
 - `saveProfile()` called only by `UserSettingsService`
+- One record per user — never create a second profile
 - Full replace on every write — no partial field updates

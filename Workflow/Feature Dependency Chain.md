@@ -304,9 +304,9 @@ Top-of-chain feature. Depends on Commitment and Performance via `UserCapabilityS
 
 **Public functions (UserCapabilityService):** `getBlockedReason()`, `canAddCommitment` (Riverpod provider)
 
-**Subscribes to (UserCapabilityService):** `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent` (Commitment), `DayStartedEvent` (TemporalHelper)
+**Subscribes to (UserCapabilityService):** `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent` (CommitmentIdentityService), `DayStartedEvent` (TemporalHelper)
 
-**Calls directly:** `CommitmentService.getPortfolioSize()`, `CommitmentService.getActiveCount()`, `CommitmentService.getRecentlyCreated()`, `PerformanceService.getPerformanceForPeriod()`
+**Calls directly:** `CommitmentIdentityService.getPortfolioSize()`, `CommitmentIdentityService.getActiveCount()`, `CommitmentIdentityService.getRecentlyCreated()`, `PerformanceService.getPerformanceForPeriod()`
 
 ---
 

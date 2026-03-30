@@ -1,18 +1,8 @@
-**File Name**: service_user_capability **Feature**: UserSettings **Phase**: 1 **Created**: 21-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: service_user_capability **Feature**: UserSettings **Phase**: 1 **Created**: 21-Mar-2026 **Modified**: 28-Mar-2026
 
 ---
 
 **Purpose:** maintains what the user is currently allowed to do. Calculates and exposes a `canAddCommitment` signal that the UI observes. The add commitment button reads this signal — it never evaluates access itself.
-
----
-
-## Why This Lives in UserSettings, Not Commitment
-
-Access rules are a property of the user — "what is this user currently allowed to do?" They are not a property of the commitment feature. As the app grows, more capability checks may appear (unlock AI Insights, export data, advanced features). All of them belong here, in one place, owned by the feature that represents the user.
-
-Putting this logic inside CommitmentService would require CommitmentService to call PerformanceService and UserSettingsService — features above it in the dependency chain. That violates the one-way dependency rule. UserSettings sits at the top of the chain and can read from Commitment and Performance without any violation.
-
-This is not a security-critical system. The consequence of bypassing the limit is the user creates more commitments than their tier allows — not a risk. UI-level enforcement backed by this service is appropriate for a local-first mobile app.
 
 ---
 
@@ -57,9 +47,9 @@ The button never calls any evaluation function — it only observes the provider
 
 `canAddCommitment` is recalculated when any of its inputs may have changed:
 
-- `CommitmentService.onInstanceCreated` — commitment count changed
-- `CommitmentService.onInstanceUpdated` — commitment state changed
-- `CommitmentService.onInstancePermanentlyDeleted` — portfolio size changed
+- `CommitmentIdentityService.onInstanceCreated` — commitment count changed
+- `CommitmentIdentityService.onInstanceUpdated` — commitment state changed
+- `CommitmentIdentityService.onInstancePermanentlyDeleted` — portfolio size changed
 - `TemporalHelperService.onDayStarted` — rate limit rolling window may have shifted
 - User subscription tier change — tier ceiling may have changed
 
@@ -79,8 +69,8 @@ The button never calls any evaluation function — it only observes the provider
 
 ## Dependencies
 
-- `CommitmentService` — subscribes to `onInstanceCreated`, `onInstanceUpdated`, `onInstancePermanentlyDeleted`; calls `getPortfolioSize()`, `getActiveCount()`, `getRecentlyCreated()`
-- `TemporalHelperService` — subscribes to `onDayStarted`
+- `CommitmentIdentityService` — subscribes to `InstanceCreatedEvent`, `InstanceUpdatedEvent`, `InstancePermanentlyDeletedEvent`; calls `getPortfolioSize()`, `getActiveCount()`, `getRecentlyCreated()`
+- `TemporalHelperService` — subscribes to `DayStartedEvent`
 - `PerformanceService.getPerformanceForPeriod()` — access window performance
 - `UserCoreService.getTier()` — subscription tier
 - `UserSettingsService` — reads onboarding status
