@@ -1,4 +1,4 @@
-**File Name**: repository_ai_insight **Feature**: AI Insights **Phase**: 3 (Firestore only — Pro/Premium users are always on Firestore) **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: repository_ai_insight **Feature**: AI Insights **Phase**: 3 (Firestore only — Pro/Premium users are always on Firestore) **Created**: 15-Mar-2026 **Modified**: 28-Mar-2026
 
 **Availability:** Pro / Premium only.
 

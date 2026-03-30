@@ -284,7 +284,7 @@ No events published. No events subscribed. Pure computation on demand.
 
 **Public functions (AIInsightService):** `generateMicroInsight(definitionId)`, `generateQuickSummary(weekStart)`, `generateDeepReport(from, to)`, `getLastInsight(type, definitionId?)`
 
-**Subscribes to:** `WeekEndedEvent` (TemporalHelper) — for auto quick summary trigger
+No event subscriptions — insights are generated on demand only.
 
 **Calls directly:** `AnalyticsService` (all three compute functions), `UserSettingsService.checkAndDecrementInsightQuota()`, `AIInsightRepository`
 
