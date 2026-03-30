@@ -96,9 +96,9 @@ if newLevel > profile.currentLevel:
 
 ```
 AchievementService.addAchievement(AchievementRecord(
-  type: AchievementType.garment,
-  subtype: subtype,
-  sourceId: profile.id,
+  id: "${profile.definitionId}_${subtype.name}",
+  type: GarmentAchievement.values.byName(subtype.name).type,
+  subtype: subtype.name,
   definitionId: profile.definitionId,
   createdAt: now,
   updatedAt: now,

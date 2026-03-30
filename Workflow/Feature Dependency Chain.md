@@ -208,7 +208,7 @@ No events published. No public read functions — internal only. See `service_co
 
 **Publishes:** `AchievementEarnedEvent(record: AchievementRecord)`
 
-**Public functions (AchievementService):** `addAchievement(record)`, `getAchievements(from, to, type?, subtype?, definitionId?)`, `getAchievementsForWeek(weekStart)`, `getAchievementsForMonth(month)`, `getAchievementsForPeriod(from, to)`, `watchAchievements(from, to)`, `getCupHistory(from, to)`, `getCupsSince(from)`, `getBestStreak(definitionId?)`, `getStreakAchievements(definitionId, from, to)`
+**Public functions (AchievementService):** `addAchievement(record)`, `getAchievements(from, to, type?, subtype?, definitionId?)`, `getAchievementsForWeek(weekStart)`, `getAchievementsForMonth(month)`, `getAchievementsForPeriod(from, to)`, `watchAchievements(from, to)`
 
 No event subscriptions — producing features call `addAchievement()` directly downward.
 

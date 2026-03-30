@@ -11,10 +11,11 @@
 ### `addAchievement(AchievementRecord record)`
 
 ```
-if AchievementRepository.existsForSource(record.sourceId): return  // safety net
-AchievementRepository.saveRecord(record)
+AchievementRepository.saveRecord(record)   // upsert by id — idempotent by design
 publish AchievementEarnedEvent(record)
 ```
+
+Idempotency is structural — the producing service generates a deterministic `id` for each achievement moment. Writing the same ID twice produces the same document. No existence check needed.
 
 ---
 
@@ -57,7 +58,7 @@ Live stream for the achievements screen during a session.
 - All reads are self-contained — no calls to other features
 - Records are permanent — never deleted for any reason
 - All reads use a time window
-- Producing features guarantee no duplicate calls — `existsForSource` is the safety net
+- Idempotency guaranteed by deterministic `id` — no existence check needed
 
 ---
 

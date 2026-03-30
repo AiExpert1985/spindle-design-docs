@@ -181,7 +181,7 @@ LevelReachedEvent
 
 PointsAwardedEvent             // internal to Progression — never subscribed outside
   points: double
-  subtype: AchievementSubtype
+  subtype: String
   createdAt: DateTime
 ```
 

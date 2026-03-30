@@ -11,7 +11,6 @@
 ```dart
 abstract class AchievementRepository {
   Future<void> saveRecord(AchievementRecord record);
-  Future<bool> existsForSource(String sourceId);
   Future<List<AchievementRecord>> getAchievements(
     DateTime from,
     DateTime to, {
@@ -23,9 +22,7 @@ abstract class AchievementRepository {
 }
 ```
 
-`saveRecord` — append-only. Never called for updates.
-
-`existsForSource(sourceId)` — idempotency safety net. Called before every write.
+`saveRecord` — upsert by document `id`. Append-only in practice — the deterministic `id` guarantees that writing the same achievement twice produces the same document.
 
 `getAchievements(from, to, type?, subtype?, definitionId?)` — unified read. All filters optional except the time window. Ordered by `createdAt` descending.
 
@@ -39,7 +36,7 @@ abstract class AchievementRepository {
 /users/{userId}/achievements/{id}
 ```
 
-Covered by existing security rule.
+Document ID is the deterministic achievement ID. Covered by existing security rule.
 
 ---
 
@@ -47,5 +44,4 @@ Covered by existing security rule.
 
 - Called only by `AchievementService`
 - Append-only — no update or delete operations
-- `existsForSource` called before every write
 - All reads use a time window — never fetch unbounded history

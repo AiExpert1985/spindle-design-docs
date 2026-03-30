@@ -54,22 +54,13 @@ return null
 
 ```
 AchievementService.addAchievement(AchievementRecord(
-  type: AchievementType.cup,
-  subtype: _cupSubtype(cup.cupLevel),
-  sourceId: cup.id,
+  id: "${cup.id}_${cup.cupLevel.name}",   // e.g. "2026_W13_bronze"
+  type: CupAchievement.values.byName(cup.cupLevel.name).type,
+  subtype: cup.cupLevel.name,
   definitionId: null,
   createdAt: now,
   updatedAt: now,
 ))
-```
-
-### `_cupSubtype(level)` → AchievementSubtype
-
-```
-bronze  → AchievementSubtype.bronzeCup
-silver  → AchievementSubtype.silverCup
-gold    → AchievementSubtype.goldCup
-diamond → AchievementSubtype.diamondCup
 ```
 
 ---

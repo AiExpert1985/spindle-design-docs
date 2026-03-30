@@ -94,10 +94,15 @@ Fetches all `StreakRecord`s, optionally excluding one `definitionId`, and return
 
 ```
 AchievementService.addAchievement(AchievementRecord(
-  type: AchievementType.streak,
-  subtype: subtype,
-  sourceId: definitionId,
+  id: subtype == AchievementSubtype.streakMilestone
+        ? "${definitionId}_streakMilestone_${record.currentStreak}"
+        : "${definitionId}_globalBestStreak",
+  type: StreakAchievement.values.byName(subtype.name).type,
+  subtype: subtype.name,
   definitionId: definitionId,
+  metadata: subtype == AchievementSubtype.streakMilestone
+        ? {'streakCount': record.currentStreak}
+        : null,
   createdAt: now,
   updatedAt: now,
 ))

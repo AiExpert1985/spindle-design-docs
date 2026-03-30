@@ -2,8 +2,6 @@
 
 ---
 
-# Feature — Achievements
-
 Achievements is the collection point for every meaningful moment the user earns across all features. It does not detect achievements — it receives them. Any feature that reaches an achievement moment calls `addAchievement()` downward. Achievements stores the record, publishes the event, and serves all achievement reads from a single collection.
 
 ---
@@ -48,7 +46,9 @@ Producing features call downward — valid in the dependency chain. Achievements
 
 This is an inversion of the typical observer pattern. Instead of the aggregator watching producers (pull via events), producers notify the aggregator directly (push via direct call). The aggregator becomes a write-through store — one write door, all reads self-served from the stored collection. In formal terms this maps to the write side of CQRS: `addAchievement()` is the command path, `getAchievements()` is the query path, and the `AchievementRecord` collection is the single source of truth for both.
 
-**Records are permanent.** Achievements are facts about the user's history. Deleting a commitment does not erase what was accomplished with it. `sourceId` may become stale if the originating record is deleted, but the achievement remains valid and displayable.
+**Records are permanent.** Achievements are facts about the user's history. Deleting a commitment does not erase what was accomplished with it. `definitionId` links per-commitment achievements back to their commitment — useful for future detail screens. Cross-commitment achievements (cups, global best streak) carry `definitionId: null`.
+
+**Idempotency by deterministic id.** Each producing service generates a predictable `id` for each specific achievement moment — encoding enough context to be unique (e.g. `2026_W13_bronze`, `${definitionId}_garmentCompleted`). Writing the same achievement twice upserts to the same document. No existence check needed.
 
 **One read interface.** `getAchievements(from, to, type?, subtype?, definitionId?)` covers every read case — cups history, streak records, garment completions — all answered from the same collection with the same function. No producing feature is called for reads.
 
@@ -96,7 +96,7 @@ All other groups follow the same pattern in their own files.
 
 ## Events
 
-**`AchievementEarnedEvent`** — published after every successful write. Carries the full `AchievementRecord`. Consumed by Progression for point scoring and by features above that respond to achievement moments.
+**`AchievementEarnedEvent`** — published after every successful write. Carries the full `AchievementRecord`. Consumed by features above that score points or respond to achievement moments.
 
 ---
 
@@ -109,10 +109,11 @@ All other groups follow the same pattern in their own files.
 - Records are permanent — never deleted for any reason
 - All reads use a time window — never unbounded
 - `type` and `subtype` stored as enum `.name` strings — no manual string literals
+- Idempotency guaranteed by deterministic `id` — no existence check needed
 - Adding a new producing feature or achievement subtype requires zero changes to this feature
 
 ---
 
 ## Later Improvements
 
-**Rewards feature.** A `RewardService` that evaluates sustained rolling performance and calls `addAchievement()` with `type: reward`. The `periodicReward` subtype and its `AppConfig` point entry are already present — fully additive when ready.
+**Rewards feature.** A `RewardService` that evaluates sustained rolling performance and calls `addAchievement()` with `type: reward`. Fully additive when ready — requires a new `RewardAchievement` enum file and one `AppConfig` point entry. Zero changes needed here.
