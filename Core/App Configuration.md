@@ -1,4 +1,4 @@
-**File Name**: appconfiguration **Feature**: Core **Phase**: 1 **Created**: 18-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: appconfiguration **Feature**: Core **Phase**: 1 **Created**: 18-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -60,10 +60,10 @@ avoidPenaltyBase: 0.5
   Lower = harsher, higher = softer.
   Only applies when totalLogged > target.value and target.value > 0.
 
-successThreshold: 0
+successThreshold: 60
   Minimum livePerformance (0–100) for a window to count as a kept day.
   Used exclusively by PerformanceService.isWindowSuccess() — no feature
-  reads this directly. Any progress counts in Phase 1 and 2.
+  reads this directly.
   Phase 3: configurable per commitment via UI. This is the global fallback.
 ```
 
@@ -87,17 +87,11 @@ targetRepetitions: 30
 ## Streak
 
 ```
-minStreakThreshold: 3
-  Minimum absolute streak value (positive or negative) before
-  achievement detection runs in StreakService._detectAchievements().
-  Below this threshold the record updates silently.
-  Prevents noise from single-window fluctuations.
-
-streakMilestones: [3, 5, 7, 10, 14]
-  Positive streak counts that trigger a streak milestone achievement.
+streakStep: 3
+  The interval between streak milestones.
+  Milestone fires when currentStreak > 0 and currentStreak % streakStep == 0.
+  Changing this value adjusts all milestone thresholds automatically.
   Only positive streaks qualify — negative streaks have no milestones.
-  Matches the badge mapping in component_streak_ui.
-  Adjustable after launch — badge mapping must be updated to match.
 ```
 
 ---
@@ -149,11 +143,7 @@ pointsDiamondCup: 5.0
 pointsGlobalBestStreak: 3.0
 
 // Streak milestone achievements
-pointsThreeDay:    1.0
-pointsFiveDay:     1.0
-pointsSevenDay:    2.0
-pointsTenDay:      2.0
-pointsFourteenDay: 3.0
+pointsStreakMilestone: 2.0
 
 // Garment achievements
 pointsGarmentCompleted: 5.0

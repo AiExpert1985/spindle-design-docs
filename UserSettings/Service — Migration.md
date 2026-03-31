@@ -1,4 +1,4 @@
-**File Name**: service_migration **Feature**: UserSettings **Phase**: 3 **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: service_migration **Feature**: UserSettings **Phase**: 3 **Created**: 15-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -84,6 +84,7 @@ Returns current migration state — `notStarted`, `inProgress`, `complete`, or `
 - All Firebase user data deleted on cancellation — nothing remains in the cloud
 - Migration failures logged via `LoggerService`
 - Returns `Result<T>` — never throws
+- The subcollection list must be updated whenever a new feature with a repository is added — see `architecture_rules` §14 modularity checklist. A missing subcollection means data loss on tier downgrade.
 
 ---
 

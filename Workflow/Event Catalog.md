@@ -1,4 +1,4 @@
-**File Name**: event_catalog **Phase**: All phases **Created**: 21-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: event_catalog **Phase**: All phases **Created**: 21-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -156,7 +156,7 @@ GarmentUpdatedEvent
   completionPercent: double
 ```
 
-`GarmentUpdatedEvent` consumed by the presentation layer for live display. When a garment completes, `GarmentService` calls `AchievementService.addAchievement()` directly — no event published for the achievement handoff.
+`GarmentUpdatedEvent` consumed by `GarmentService` to update providers that the presentation layer observes. The presentation layer never subscribes to this event directly — it watches providers per `architecture_rules` §7. When a garment completes, `GarmentService` calls `AchievementService.addAchievement()` directly — no event published for the achievement handoff.
 
 ---
 

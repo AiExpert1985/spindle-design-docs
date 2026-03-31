@@ -1,4 +1,4 @@
-**File Name**: service_performance **Feature**: Performance **Phase**: 1 **Created**: 20-Mar-2026 **Modified**: 28-Mar-2026
+**File Name**: service_performance **Feature**: Performance **Phase**: 1 **Created**: 20-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -36,7 +36,30 @@ Published after every `livePerformance` change.
 
 ### `_calculate(totalLogged, currentTarget, commitmentType)` — private
 
-Core formula. Never called by other features.
+Core formula. Returns `livePerformance` as a percentage (0–100+). Never called by other features.
+
+**Do commitments:**
+
+```
+livePerformance = (totalLogged / currentTarget) × 100
+```
+
+No upper cap. Logging above target records the real value — 150% means the user genuinely overperformed. This preserves real data and signals when a target may be too easy. A done/not-done commitment uses `currentTarget = 1` — logging 1 gives 100%.
+
+**Avoid commitments:**
+
+When `totalLogged <= currentTarget` (user stayed within limit): `livePerformance = 100`.
+
+When `totalLogged > currentTarget` and `currentTarget > 0` (user exceeded limit): soft exponential penalty with configurable base.
+
+```
+excess = (totalLogged - currentTarget) / currentTarget
+livePerformance = 100 × AppConfig.avoidPenaltyBase ^ excess
+```
+
+Every doubling of excess halves the score at the default base of 0.5. The base is tunable — raising it toward 1.0 softens the penalty without touching the formula or any callers.
+
+When `currentTarget == 0` (total avoidance — any logged amount is a breach): `livePerformance = 0`. No partial credit.
 
 ### `getPerformanceForPeriod(from, to, definitionId?) → double`
 

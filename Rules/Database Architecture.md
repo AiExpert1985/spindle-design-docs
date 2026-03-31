@@ -1,4 +1,4 @@
-**Created**: 15-Mar-2026 **Modified**: 26-Mar-2026 **Phase**: 1 (Drift) · Phase 3 (Firestore) **Folder**: Rules
+**Created**: 15-Mar-2026 **Modified**: 30-Mar-2026 **Phase**: 1 (Drift) · Phase 3 (Firestore) **Folder**: Rules
 
 **Purpose:** defines which database backend is active per tier, how data is structured, how migration works, and the core rule that the rest of the app never knows which backend is in use.
 
@@ -96,6 +96,16 @@ The window size for each use case is defined in the relevant feature's repositor
 4. Delete all Firebase user data — nothing remains in the cloud
 
 Migration is atomic — old database kept intact until new database write is verified. No data loss on failure.
+
+---
+
+## Drift Schema Versioning
+
+When a new app version adds tables, columns, or changes field types in the Drift schema, a numbered migration step is required. Drift handles this via its `schemaVersion` integer and `MigrationStrategy` callback.
+
+Each phase transition (Phase 1 → Phase 2, Phase 2 → Phase 3) will introduce new tables (e.g. `StreakRecord`, `GarmentProfile`, `WeeklyCup`). Each new table or column addition is one migration step. Steps are sequential and non-reversible — Drift does not support downgrading.
+
+Every feature with a repository must document its Drift table definition. When a feature is added in a later phase, its migration step is added to the Drift migration strategy. See `architecture_rules` §14 modularity checklist.
 
 ---
 

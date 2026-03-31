@@ -1,4 +1,4 @@
-**File Name**: service_garment **Feature**: Garment **Phase**: 3 **Created**: 24-Mar-2026 **Modified**: 28-Mar-2026
+**File Name**: service_garment **Feature**: Garment **Phase**: 3 **Created**: 24-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -54,7 +54,7 @@ Idempotent — profile creation exits silently if profile already exists. Day re
 6. record.delta = newDelta
 7. Save updated day record
 8. previousPercent = profile.completionPercent
-9. profile.completionPercent = max(0.0, previousPercent - oldDelta + newDelta)
+9. profile.completionPercent = max(AppConfig.garmentFloor, previousPercent - oldDelta + newDelta)
 10. Save updated profile
 11. Publish GarmentUpdatedEvent
 12. _detectAchievements(profile, previousPercent)

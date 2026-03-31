@@ -1,4 +1,4 @@
-**File Name**: service_cup **Feature**: Cups **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 28-Mar-2026
+**File Name**: service_cup **Feature**: Cups **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -35,6 +35,8 @@ _addAchievement(cup)
 return "${weekStart.year}_W${weekNumber(weekStart)}"
 // e.g. "2026_W13"
 ```
+
+`weekNumber` is derived from the user's configured `weekStartDay` via `TemporalHelperService`, not from locale-dependent ISO week numbering. This prevents misalignment for users whose week starts on Saturday or Sunday, and avoids edge cases at year boundaries where ISO and user-relative week numbers may differ.
 
 The document ID is the natural unique key per week per user. Upsert by this ID means no existence check needed — writing the same week twice produces the same record.
 

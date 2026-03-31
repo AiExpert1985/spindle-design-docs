@@ -1,4 +1,4 @@
-**File Name**: feature_dependency_chain **Phase**: All phases **Created**: 21-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: feature_dependency_chain **Phase**: All phases **Created**: 21-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -60,14 +60,16 @@ Garment               (depends on Performance, Streak via AcceleratorService)
 Progression           (ScoringService · ProgressionService — internal)
                       (subscribes to AchievementEarnedEvent)
       ↓
-Encouragement
-      ↓
 ┌─────────────────────────────────────────────────────────┐
 │  AI Insights · Core                                     │  same level — no dependency
 └─────────────────────────────────────────────────────────┘
       ↓
 UserSettings          (writes UserCoreProfile, capability checks,
                        onboarding, subscription, referral)
+      ↓
+Encouragement         (subscribes to Activity, Commitment, Heartbeat;
+                       calls Performance, UserCore, UserSettings;
+                       top of chain — depends on everything below)
 ```
 
 ---
@@ -96,7 +98,9 @@ UserSettings          (writes UserCoreProfile, capability checks,
 
 **Same-level features are fully independent.** No feature calls or subscribes to a feature at the same level.
 
-**UserSettings sits at the top.** It is the only writer of `UserCoreProfile`. Its `UserCapabilityService` depends on Commitment and Performance — placing it above everything else.
+**UserSettings is the only writer of `UserCoreProfile`.** Its `UserCapabilityService` depends on Commitment and Performance — placing it near the top.
+
+**Encouragement sits at the top of the chain.** It subscribes to Activity, Commitment, and Heartbeat events, reads from Performance and UserCore, and calls `UserSettingsService` for encouragement tracking. It depends on more features than any other, which is why it sits highest. It is fully removable — deleting it stops all encouragement signals, nothing else changes.
 
 ---
 

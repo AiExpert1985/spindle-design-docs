@@ -1,4 +1,4 @@
-**File Name**: architecture_rules **Phase**: All phases **Created**: 15-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: architecture_rules **Phase**: All phases **Created**: 15-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -254,3 +254,5 @@ Before building any new feature:
 - Does it react to other features only through event subscriptions?
 - Does it publish events when its state changes?
 - Can it be removed without changing any other feature's code?
+- If it has a repository: is its subcollection added to `MigrationService`'s data list?
+- If it adds new tables or fields to Drift: is a Drift schema migration step included?

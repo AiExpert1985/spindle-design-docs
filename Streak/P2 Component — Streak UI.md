@@ -1,4 +1,4 @@
-**File Name**: component_streak_ui **Feature**: Streak **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: component_streak_ui **Feature**: Streak **Phase**: 2 **Created**: 24-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -28,17 +28,17 @@ Fires when `AchievementEarnedEvent` arrives with `type: streakMilestone`. Full-s
 - Auto-dismisses after ~2.5 seconds, tap dismisses immediately
 - Triggered by `EncouragementService` — this component is the visual, Encouragement is the trigger
 
-**Badge mapping** — matches `AppConfig.streakMilestones` exactly:
+**Badge mapping** — driven by `AppConfig.streakStep` (default: 3). Badge tier advances every `streakStep` milestones:
 
 |Streak count|Badge|
 |---|---|
-|3|🥉 Bronze|
-|5|🥈 Silver|
-|7|🥇 Gold|
-|10|🏆 Trophy|
-|14|💎 Diamond|
+|1× streakStep (3)|🥉 Bronze|
+|2× streakStep (6)|🥈 Silver|
+|3× streakStep (9)|🥇 Gold|
+|4× streakStep (12)|🏆 Trophy|
+|5× streakStep (15)+|💎 Diamond|
 
-Badge mapping is defined here and driven by `AppConfig.streakMilestones`. If milestones are adjusted in config, the badge mapping must be updated to match.
+Badge tier is `ceil(currentStreak / streakStep)`, capped at Diamond. Milestones beyond 5× streakStep continue earning achievements but keep the Diamond badge. Changing `streakStep` in AppConfig adjusts all thresholds automatically — the badge mapping derives from it.
 
 ---
 
@@ -74,9 +74,9 @@ The component receives data from the parent screen's provider — it does not su
 
 - Purely presentational — no service calls from within the component
 - Negative `currentStreak` values are never shown as negative — shown as no current streak
-- Milestone overlay fires once per milestone event — deduplication handled by `MilestoneService`
+- Milestone overlay fires once per milestone event — deduplication handled by `StreakService`
 - Frozen commitments show ❄ state — no streak count, no badge
-- Badge mapping must stay in sync with `AppConfig.streakMilestones`
+- Badge tier derived from `AppConfig.streakStep` — no separate mapping to maintain
 
 ---
 
