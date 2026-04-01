@@ -1,4 +1,4 @@
-**File Name**: screen_commitment_form **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 24-Mar-2026
+**File Name**: screen_commitment_form **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -51,9 +51,9 @@
 
 **Recurrence** — Daily, Weekly, or Specific days. Selecting Specific days reveals a day-picker row inline. Defaults to Daily.
 
-**Window start** — when the activity window opens, in local time. Defaults from `UserCoreService.getActivityWindowDefaults(recurrence)`.
+**Window start** — when the activity window opens, in local time. Defaults from `CommitmentService.getActivityWindowDefaults(recurrence)`.
 
-**Window duration** — how long the window lasts. Defaults from `UserCoreService.getActivityWindowDefaults(recurrence)`.
+**Window duration** — how long the window lasts. Defaults from `CommitmentService.getActivityWindowDefaults(recurrence)`.
 
 **Warning notification** — on or off. When on, a reminder fires at 3/4 of the window duration. Defaults from `UserCoreService.getProfile().warningNotificationsEnabled`. Maps to `activityWindow.warningEnabled`.
 

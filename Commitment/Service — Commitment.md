@@ -1,4 +1,4 @@
-**File Name**: service_commitment **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 28-Mar-2026
+**File Name**: service_commitment **Feature**: Commitment **Phase**: 1 **Created**: 15-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -118,6 +118,7 @@ Delete is available from any non-deleted state. Invalid transitions return a `Fa
 - `getActiveCount()` — count of active commitments only.
 - `getRecentlyCreated(since)` — definitions created after a given date. Used by rate limit checks.
 - `getStateTransitionLog(definitionId)` — full ordered log for one commitment.
+- `getActivityWindowDefaults(recurrence) → ActivityWindowDefaults` — returns the default `startMinutes` and `durationMinutes` for a given recurrence type. Reads the user's temporal preferences from `UserCoreService` and maps them to the correct defaults per recurrence. Called by the commitment form to pre-fill the activity window.
 
 ---
 
@@ -135,4 +136,5 @@ Delete is available from any non-deleted state. Invalid transitions return a `Fa
 ## Dependencies
 
 - `CommitmentRepository` — definition and state transition log storage
+- `UserCoreService` — reads temporal preferences for `getActivityWindowDefaults()`
 - Internal stream — publishes `CommitmentEvent` consumed only by `CommitmentIdentityService`

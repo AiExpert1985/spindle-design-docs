@@ -146,7 +146,7 @@ No events published. No subscriptions. See `notification_service`.
 
 ### UserCore
 
-**Public functions (UserCoreService):** `getProfile()`, `getTier()`, `getTemporalPreferences()`, `getActivityWindowDefaults(recurrence)`, `watchProfile()`
+**Public functions (UserCoreService):** `getProfile()`, `getTier()`, `getTemporalPreferences()`, `watchProfile()`
 
 No events published. No events subscribed. Pure read-only interface. See `service_user_core`, `repository_user_core`, `model_user_core_profile`.
 

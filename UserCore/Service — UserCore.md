@@ -1,4 +1,4 @@
-**File Name**: service_user_core **Feature**: UserCore **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 28-Mar-2026
+**File Name**: service_user_core **Feature**: UserCore **Phase**: 1 **Created**: 26-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -19,10 +19,6 @@ Returns the current subscription tier. Called by any feature that gates behavior
 ### `getTemporalPreferences() → UserTemporalPrefs`
 
 Returns `weekStartDay`, `restDays`, `dayBoundaryHour`, `wakingHoursStart`, `wakingHoursEnd` as a `UserTemporalPrefs` value object. Passed directly into `TemporalHelper` static functions by callers — `TemporalHelper` never calls this itself.
-
-### `getActivityWindowDefaults(recurrence) → ActivityWindowDefaults`
-
-Returns the default `startMinutes` and `durationMinutes` for a given recurrence type. Called when creating a new commitment to pre-fill the activity window.
 
 ### `watchProfile() → Stream<UserCoreProfile>`
 

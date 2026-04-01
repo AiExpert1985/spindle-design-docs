@@ -1,4 +1,4 @@
-**File Name**: feature_usercore **Phase**: 1 **Created**: 28-Mar-2026 **Modified**: 28-Mar-2026
+**File Name**: feature_usercore **Phase**: 1 **Created**: 28-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -8,7 +8,7 @@ UserCore is the single source of truth for the user's identity, subscription tie
 
 ## Why It Exists
 
-Every feature above it needs something from the user's profile — tier to gate behavior, temporal preferences to interpret time, notification toggles, activity window defaults. Without a dedicated low-level feature for this data, every feature that needs it would depend on wherever it happened to live, creating either an impossible dependency chain or forced cycles. UserCore solves this by sitting as low as possible — just above Infrastructure — so any feature above it can read freely without creating an upward dependency.
+Every feature above it needs something from the user's profile — tier to gate behavior, temporal preferences to interpret time, notification toggles. Without a dedicated low-level feature for this data, every feature that needs it would depend on wherever it happened to live, creating either an impossible dependency chain or forced cycles. UserCore solves this by sitting as low as possible — just above Infrastructure — so any feature above it can read freely without creating an upward dependency.
 
 ---
 
@@ -22,7 +22,7 @@ Read-only from the outside. The only writer of `UserCoreProfile` is the feature 
 
 ## What It Owns
 
-**Model:** `UserCoreProfile` — identity, subscription tier, storage backend, temporal preferences, activity window defaults, notification preferences.
+**Model:** `UserCoreProfile` — identity, subscription tier, storage backend, temporal preferences, activity window default values, notification preferences.
 
 **Service:** `UserCoreService` — read-only access and first-launch profile creation.
 
@@ -48,7 +48,7 @@ Temporal preferences are the most-read data in the profile. The rule is strict: 
 
 ## Who Uses It
 
-Any feature that needs to gate behavior on subscription tier calls `getTier()`. Any feature that needs activity window defaults when creating a commitment calls `getActivityWindowDefaults()`. The time interpretation feature watches the profile stream to invalidate its cached preferences when the user changes their region or time settings. No other feature reads temporal preferences directly.
+Any feature that needs to gate behavior on subscription tier calls `getTier()`. The time interpretation feature watches the profile stream to invalidate its cached preferences when the user changes their region or time settings. No other feature reads temporal preferences directly.
 
 ---
 
