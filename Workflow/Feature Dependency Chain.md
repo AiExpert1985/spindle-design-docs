@@ -20,8 +20,6 @@ Lower features never know upper features exist. A lower feature publishes events
 
 Not features. No lifecycle, no state, no events. Static utility classes available to any layer above Domain.
 
-- **TickGuard** — idempotency utility for tick subscribers. See `tick_guard`.
-
 `AchievementRecord`, `AchievementType`, and `AchievementSubtype` are owned by the **Achievements feature** — not the Domain layer. Producing features reference them as downward dependencies since Achievements sits below them in the chain.
 
 ---

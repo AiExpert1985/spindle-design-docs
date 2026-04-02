@@ -1,4 +1,4 @@
-**File Name**: service_encouragement **Feature**: Encouragement **Phase**: 2 **Created**: 18-Mar-2026 **Modified**: 28-Mar-2026
+**File Name**: service_encouragement **Feature**: Encouragement **Phase**: 2 **Created**: 18-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -88,6 +88,12 @@ Selects story type 1–7 by priority. Never returns `lastType` unless it is the 
 ### `_buildStoryText(storyType, facts, dayScore)` → String
 
 Constructs the story string for the selected type using facts and score.
+
+### `_getCommitmentCycleBounds(definitionId)` → (cycleStart: DateTime, cycleEnd: DateTime)
+
+Returns the start and end of the current cycle for a specific commitment. For daily and specific-day commitments, this is the current day. For weekly commitments, the cycle is derived from the commitment's first instance `windowStart` — not from the user's global `weekStartDay`. A weekly commitment created on Thursday has its natural cycle boundary on Thursday, regardless of when the user's calendar week starts.
+
+This function exists because the global `WeekEndedEvent` fires on the user's configured week boundary, which may not align with a weekly commitment's natural cycle. Encouragement is the only feature that needs per-commitment cycle awareness — all other features (Streak, Cups, Performance) evaluate weekly commitments using the global week boundary and the daily-decomposition model, which handles partial weeks correctly without per-commitment cycle tracking.
 
 ---
 

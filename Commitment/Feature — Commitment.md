@@ -1,4 +1,4 @@
-**File Name**: feature_commitment **Phase**: 1 **Created**: 28-Mar-2026 **Modified**: 28-Mar-2026
+**File Name**: feature_commitment **Phase**: 1 **Created**: 28-Mar-2026 **Modified**: 30-Mar-2026
 
 ---
 
@@ -59,6 +59,8 @@ A weekly commitment does not produce one weekly instance. It produces one instan
 **Why this matters:** it makes performance calculation uniform across the entire system. Every feature above Commitment treats every instance identically — there is no special-casing by recurrence type anywhere above this feature. The complexity of recurrence is absorbed entirely inside Commitment during instance generation and never leaks out.
 
 It also enables flexible effort distribution across a week. A user who commits to walk 3 days a week gets a daily instance with 1/7 of the weekly target. On a day they walk, they may log far above the daily target — 300% or more — and that over-performance carries the week forward. This is what makes the 1/7 division mathematically sound: because over-performance is allowed and accumulates, a user who acts intensely on fewer days still reaches their weekly total correctly. The weekly picture self-corrects across days without any feature needing to know the commitment was configured as weekly.
+
+**Partial first week.** A weekly commitment created mid-week does not wait for the next full week to start. It begins generating daily instances immediately. If the user's week ends on Friday and they add a weekly commitment on Thursday, they get 2 daily instances before the first `WeekEndedEvent`. Features that evaluate weekly performance — Streak, Cups — average across only the instances that exist, not across a full 7-day span. The user is judged on what they actually had. No special-casing or cycle-window concept is needed — the daily decomposition handles partial weeks naturally.
 
 ---
 
