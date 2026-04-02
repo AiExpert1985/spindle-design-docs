@@ -24,8 +24,8 @@
 │  Recurrence                             │
 │  [ Daily ▾ ]                            │
 │                                         │
-│  Window start     Window duration       │
-│  [ 00:00       ]  [ 24 hours       ]    │
+│  Window start     Window end            │
+│  [ 00:00       ]  [ 23:59       ]       │
 │                                         │
 │  Warning notification                   │
 │  [ On ]  [ Off ]                        │
@@ -53,7 +53,7 @@
 
 **Window start** — when the activity window opens, in local time. Defaults from `CommitmentService.getActivityWindowDefaults(recurrence)`.
 
-**Window duration** — how long the window lasts. Defaults from `CommitmentService.getActivityWindowDefaults(recurrence)`.
+**Window end** — when the activity window closes, in local time. Displayed as a clock time for natural entry ("6:00 AM to 8:30 AM"). Converted to `durationMinutes = endMinutes - startMinutes` before submission. If end is earlier than start, the window is treated as crossing midnight and 1440 is added to produce a positive duration. See `model_commitment_definition` for why the model stores duration rather than an end time.
 
 **Warning notification** — on or off. When on, a reminder fires at 3/4 of the window duration. Defaults from `UserCoreService.getProfile().warningNotificationsEnabled`. Maps to `activityWindow.warningEnabled`.
 
@@ -71,7 +71,7 @@ Defaults come from `UserDefaultPreferences` — never hardcoded. The values belo
 |Unit|None|
 |Recurrence|Daily|
 |Window start|Midnight|
-|Window duration|24 hours|
+|Window end|Midnight (24-hour window)|
 |Warning notification|On|
 |Description|Empty|
 

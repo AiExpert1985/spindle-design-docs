@@ -79,6 +79,8 @@ Default values come from user settings. The user can override per commitment in 
 
 The activity window affects only notification timing — no effect on scoring or target calculation.
 
+**Why `start + duration`, not `start + end`:** the UI presents the window as start and end times — "6:00 AM to 8:30 AM" — because that's natural for users. The model stores duration instead of an end time because duration is always a positive integer and requires no wrap logic. A window starting at 10:00 PM lasting 3 hours is unambiguous; an end time of 1:00 AM requires special-casing in the model, the notification scheduler, and every boundary check. The UI converts end → duration in one place before submitting. See `screen_commitment_form` for the conversion.
+
 ---
 
 ## Commitment State
