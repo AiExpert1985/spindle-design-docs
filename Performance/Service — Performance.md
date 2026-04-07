@@ -85,6 +85,45 @@ return livePerformance >= AppConfig.successThreshold
 
 If `successThreshold` ever becomes per-commitment, only this function changes — all callers are unaffected.
 
+### `getWindowProgress(definitionId) → WindowProgress?`
+
+Returns a ready-to-display progress snapshot for the current occurrence window. Returns null if no pending instance exists (frozen, completed, or between windows).
+
+```
+WindowProgress
+  logged: double          // raw amount logged so far in this window
+  target: double          // the target for this window
+  unit: String?           // display unit — null if none set
+  periodLabel: String     // "Today" or "This week"
+  commitmentType: CommitmentType
+```
+
+```
+instance = CommitmentIdentityService.getCurrentInstance(definitionId)
+if instance == null: return null
+
+entries = ActivityService.getEntriesForPeriod(
+  definitionId,
+  instance.regenerationWindow.windowStart,
+  instance.regenerationWindow.windowEnd
+)
+logged = sum of entries.value
+
+windowDays = instance.regenerationWindow.windowEnd
+               .difference(instance.regenerationWindow.windowStart).inDays
+periodLabel = windowDays == 1 ? "Today" : "This week"
+
+return WindowProgress(
+  logged: logged,
+  target: instance.currentTarget.value,
+  unit: instance.currentTarget.measureUnit,
+  periodLabel: periodLabel,
+  commitmentType: instance.commitmentType
+)
+```
+
+The function is recurrence-agnostic — it never inspects `recurrence` type. The regeneration window boundaries already encode the correct accountability period for all recurrence types. The UI renders `"${periodLabel}: ${logged} of ${target}${unit ?? ''}"` with no further logic.
+
 ---
 
 ## Rules
@@ -98,6 +137,6 @@ If `successThreshold` ever becomes per-commitment, only this function changes �
 
 ## Dependencies
 
-- `CommitmentIdentityService` — subscribes to `InstanceCreatedEvent`; calls `updateLivePerformance()`, `getInstanceForCommitmentOnDate()`, `getInstances()`
-- `ActivityService` — subscribes to `ActivityEvent`; calls `getTotalLoggedForCommitmentOnDate()`
+- `CommitmentIdentityService` — subscribes to `InstanceCreatedEvent`; calls `updateLivePerformance()`, `getInstanceForCommitmentOnDate()`, `getInstances()`, `getCurrentInstance()`
+- `ActivityService` — subscribes to `ActivityEvent`; calls `getTotalLoggedForCommitmentOnDate()`, `getEntriesForPeriod()`
 - `AppConfig` — `successThreshold`, `avoidPenaltyBase`
