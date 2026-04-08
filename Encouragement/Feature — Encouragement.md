@@ -96,3 +96,13 @@ All three are Phase 2 deferred — pending the Dashboard card interaction design
 **Log feedback and threshold messages (Phase 2).** Deferred until the Dashboard card interaction is designed.
 
 **Richer story types.** More story types can be added by extending the priority table. No structural changes needed — story context is already read from Performance and Activity on every evaluation.
+
+
+---
+
+## Related Docs
+
+[[P3 Component — Day Celebration]]
+[[P3 Component — Inline Threshold Messages]]
+[[P3 Component — Log Reward Animation]]
+[[Service — Encouragement]]

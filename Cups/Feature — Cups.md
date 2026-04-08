@@ -55,3 +55,14 @@ Cups publishes no events. It consumes `WeekEndedEvent` from TemporalHelper and w
 ## Later Improvements
 
 No structural changes planned. Thresholds are tunable from `AppConfig` after launch without code changes.
+
+
+---
+
+## Related Docs
+
+[[Model — Weekly Cup]]
+[[Repository — Cups]]
+[[Service — Cups]]
+
+

@@ -117,3 +117,12 @@ All other groups follow the same pattern in their own files.
 ## Later Improvements
 
 **Rewards feature.** A `RewardService` that evaluates sustained rolling performance and calls `addAchievement()` with `type: reward`. Fully additive when ready — requires a new `RewardAchievement` enum file and one `AppConfig` point entry. Zero changes needed here.
+
+---
+
+## Related Docs
+
+[[Model — Achievement Record]]
+[[Repository — Achievement]]
+[[Screen — Achievements]]
+[[Service — Achievement]]

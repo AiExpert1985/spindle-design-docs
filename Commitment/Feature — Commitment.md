@@ -100,3 +100,26 @@ Commitment has two event layers — one internal, one public.
 ## Later Improvements
 
 No structural changes planned. The feature is LOCKED — extensions are additive only and require a full review of all consumers before merging.
+
+
+---
+
+## Related Docs
+
+[[Model — Commitment Definition]]
+[[Model — Commitment Instance]]
+[[P1 Component — Commitment Card]]
+[[P1 Component — Commitment Info]]
+[[P1 Component — Commitment State Change]]
+[[P2 Component — add commitment button]]
+[[P3 Component — Adaptive Difficulty]]
+[[P3 Component — Home Screen Widget]]
+[[P3 Component — Scheduled Freeze]]
+[[Repository — Commitment]]
+[[Repository — Commitment Instance]]
+[[Screen — Commitment Detail]]
+[[Screen — Commitment Form]]
+[[Screen — Commitments Main]]
+[[Service — Commitment]]
+[[Service — Commitment Identity]]
+

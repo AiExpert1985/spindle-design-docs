@@ -1,4 +1,4 @@
-**File Name**: error_handling **Phase**: All phases **Created**: 26-Mar-2026 **Modified**: 26-Mar-2026
+**File Name**: error_handling **Phase**: All phases **Feature**: Core**Created**: 26-Mar-2026 **Modified**: 26-Mar-2026
 
 ---
 

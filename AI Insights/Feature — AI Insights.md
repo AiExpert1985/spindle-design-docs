@@ -60,3 +60,14 @@ Three insight types, each serving a different need:
 **Additional providers.** OpenAI, Gemini, or others. One new implementation class each — zero changes to the interface or calling code.
 
 **Insight history.** Optional — keep previous insights rather than overwriting. Requires a storage policy change and user-facing UI to browse history.
+
+
+---
+
+## Related Docs
+
+[[Model — AI Insight Record]]
+[[P3 Component — Micro-Insight]]
+[[P3 Component — Weekly Summary]]
+[[Repository — AI Insight]]
+[[Service — AI Insight]]

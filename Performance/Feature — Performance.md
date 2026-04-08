@@ -113,3 +113,12 @@ Any feature that needs to evaluate whether a commitment window was kept calls `i
 ## Later Improvements
 
 **Performance caching.** As history grows, period queries fetch potentially hundreds of instances. A lightweight cache keyed by period and `definitionId`, invalidated on `PerformanceUpdatedEvent`, would eliminate redundant fetches without changing the public interface. Phase 2.
+
+
+---
+
+## Related Docs
+
+[[P2 Component — Commitment Health]]
+[[P2 Component — Performance Calendar]]
+[[Service — Performance]]

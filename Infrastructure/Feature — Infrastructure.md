@@ -56,3 +56,12 @@ Bottom of the dependency chain. Depends on nothing. Every feature above it may u
 **Dual tick intervals.** Two separate platform tasks — one long, one short — for more accurate short-interval behavior. One implementation swap, zero subscriber changes. Phase 2.
 
 **Remote push notifications.** A server-backed notification implementation for paid tiers. Phase 3.
+
+
+---
+
+## Related Docs
+
+[[Service — Heartbeat]]
+[[Service — Logger]]
+[[Service — Notification]]

@@ -67,3 +67,20 @@ Free-tier users have a configurable weekly limit on micro-insight generation. `c
 **Weekly report settings (Pro/Premium).** Report time and enabled toggle — already on `UserSettingsProfile`, Settings screen UI is Phase 2.
 
 **Onboarding flow (Phase 2).** `hasCompletedOnboarding` is already on `UserSettingsProfile` — null in Phase 1, never checked. Phase 2 adds the onboarding screen and sets this flag.
+
+
+---
+
+## Related Docs
+
+[[Model — User Settings Profile]]
+[[P2 Component — Onboarding]]
+[[P3 Component — Subscription Tiers]]
+[[Repository — User Settings]]
+[[Screen — Recycle Bin]]
+[[Screen — Referral]]
+[[Screen — Settings]]
+[[Service - User Capability]]
+[[Service — Migration]]
+[[Service — User Settings]]
+

@@ -60,3 +60,12 @@ CommitmentNotifications publishes no events. It is a pure consumer — it subscr
 ## Later Improvements
 
 **Grace period.** Gives the user a short extra window to log after their commitment window closes. The user triggers it from the activity log screen. Same mechanism, same repository — one additional write path triggered by user action. Deferred until the activity log screen UI decisions are made.
+
+
+---
+
+## Related Docs
+
+[[Model — Commitment Notification]]
+[[Repository — Commitment Notification]]
+[[Service — Commitment Notification]]

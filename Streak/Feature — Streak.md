@@ -72,3 +72,13 @@ The two never overlap — per-commitment milestones recognize individual effort,
 - Per-commitment milestone fires at every positive multiple of `AppConfig.streakStep` (default: 3)
 - Global best fires only when strictly greater than all other `bestStreakValue`s — ties ignored
 - Global best computed on demand — no dedicated model
+
+---
+
+## Related Docs
+
+[[Model — Streak Record]]
+[[P2 Component — Streak UI]]
+[[Repository — Streak]]
+[[Service — Streak]]
+

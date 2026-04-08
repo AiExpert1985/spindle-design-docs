@@ -62,3 +62,10 @@ Any feature that needs to react when a day ends, a day begins, a week ends, or a
 ## Later Improvements
 
 No planned extensions for the current phase. The query interface may grow if new time-based questions emerge from features above — each new function is additive and requires no structural change.
+
+
+---
+
+## Related Docs
+
+[[Service — Temporal Helper]]

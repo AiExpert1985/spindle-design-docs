@@ -133,3 +133,23 @@ The renderer is abstracted — `GarmentRenderer` is an interface with `SimpleThr
 **AI garment type assignment.** Pro/Premium — AI suggests type based on commitment shape. Rule-based always serves as synchronous fallback.
 
 **User-chosen thread colors.** User picks from curated palette instead of seeded random. Phase 3.
+
+
+---
+
+## Related Docs
+
+[[Model — Accelerator Record]]
+[[Model — Garment Day Record]]
+[[Model — Garment Profile]]
+[[P3 Component — Garment Display]]
+[[Repository — Accelerator]]
+[[Repository — Garment]]
+[[Service — Accelerator]]
+[[Service — Garment]]
+[[Service — Garment Delta Calculator]]
+[[Service — Garment Type Resolver]]
+[[Service — Thread Color Resolver]]
+
+
+

@@ -52,3 +52,12 @@ Commitment names are read from the instance's `name` snapshot field — no defin
 **Context tag analysis.** Top context tags on failures and successes. Requires the context tags feature (Phase 2) to be populated before patterns are meaningful.
 
 **Energy level correlation.** Correlating outcomes with user-reported energy level. Requires `energyLevel` field on `LogEntry` — see `component_context_tags` later improvements.
+
+
+---
+
+## Related Docs
+
+[[P3 Component — Commitment Performance Summary]]
+[[P3 Component — Predictive Friction]]
+[[Service — Analytics Service]]

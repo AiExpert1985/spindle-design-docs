@@ -74,3 +74,15 @@ The Progression screen shows all eight levels with live progress. Level records 
 **Referral unlock.** Referral sharing becomes available at level 2 for Pro/Premium users. Already gated by `isReferralUnlocked()` in `ProgressionService`.
 
 **Point value tuning.** All values are placeholders. After launch, design point values based on real user earning rates and desired progression pace. Only `AppConfig` changes — no code changes.
+
+
+---
+
+## Related Docs
+
+[[Model — Level Record]]
+[[Model — Progression Profile]]
+[[Repository — Progression]]
+[[Screen — Progression]]
+[[Service — Progression]]
+[[Service — Scoring]]

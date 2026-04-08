@@ -64,3 +64,12 @@ Any feature that needs to gate behavior on subscription tier calls `getTier()`. 
 ## Later Improvements
 
 No planned extensions. UserCore is intentionally minimal — new user-level state that requires behavioral logic goes into `UserSettingsProfile`, not here.
+
+
+---
+
+## Related Docs
+
+[[Model — UserCore Profile]]
+[[Repository — UserCore]]
+[[Service — UserCore]]

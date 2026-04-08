@@ -61,3 +61,15 @@ Any feature that needs to know what the user logged on a given day or period rea
 ## Later Improvements
 
 **Context tags.** Predefined tags (tired, social, travel, motivated) attached at log time. Transforms raw activity data into behavioral data for Analytics and AI Insights to explain patterns. Requires adding `contextTags` to `LogEntry` and a tag selection UI. See `component_context_tags`.
+
+
+---
+
+## Related Docs
+
+[[Model — Log Entry]]
+[[P1 Component — Log Entry Dialog]]
+[[P1 Component — Log History Sheet]]
+[[P2 Component — Context Tags]]
+[[Repository — Activity]]
+[[Service — Activity]]
